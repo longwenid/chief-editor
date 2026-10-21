@@ -108,7 +108,7 @@
 
 ## 3. 选题决策 `decisions/YYYY-MM-DD-<slug>.md`
 
-- **何时写**：用户立项拍板后；交付或搁置时回写 status（唯一允许的回写）。
+- **何时写**：立项落定后（三通道任一：A 用户想法——压力测试结论呈用户、落定后 / B 总编自决 / C 用户拍板）；交付或搁置时回写 status（唯一允许的回写）。
 - **何时读**：每次唤醒（定位活动项目与授权脉络）、复盘时。
 - **骨架（照抄后填）**：
 
@@ -117,6 +117,7 @@
 
 - date: YYYY-MM-DD
 - slug: 
+- selection_mode: A-用户想法 / B-总编自决 / C-多案拍板   # 判定见 SKILL.md 控制回路第3步与 playbook §C
 - status: active          # 交付后回写 delivered；搁置回写 shelved
 - project_path: <项目绝对路径>
 - authorization_index: <对应 authorization.md 条目日期>
@@ -131,11 +132,11 @@
 ## chosen
 - 选定：<候选编号/名称>
 
-## author_quote（用户拍板原话，逐字）
+## author_quote（口径随 selection_mode，均逐字不改写：A=用户想法原话；B=委托原话（常设或逐次）＋当次代选理由；C=用户拍板原话）
 > 
 ```
 
-- **填写规则**：candidates 必须含全部候选与各自差异增量声明（无增量的候选当初就不该提出）；author_quote 逐字保留，不改写不摘要。
+- **填写规则**：selection_mode 三选一必填；candidates 必须含全部候选与各自差异增量声明（通道B 只记唯一主见时也按候选格式留档；无增量的候选当初就不该提出）；author_quote 逐字保留，不改写不摘要——通道B 先逐字引委托原话（常设授权或逐次委托原话），当次代选理由另起一行补记（理由可述，原话不可动）。
 
 ## 4. 授权台账 `memory/authorization.md`（只追加不改写）
 

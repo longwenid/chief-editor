@@ -11,7 +11,7 @@
 3. **UTF-8**：会话开始先 `export PYTHONUTF8=1`——中文 JSON 与长文本经引擎物化文件读写时必设；不在控制台直接打印长 JSON（GBK 控制台会乱码），读盘里的文件。
 4. **长内容走文件**：board.md / question.json / catalog.md / brief.md / result.template.json / result.json / dispatch.md / proposal.plan_path 都是引擎物化到磁盘的文件——读盘、改盘、`--file` 提交；绝不在命令行内联长中文。
 5. **三档预授权速查**（全文见 SKILL.md）：
-   - **T0 作者专属**（必须上报，绝不代答）：choose / choose --tier / regroup / back / approve / answer / recontract / revise --proposal-hash / replan / lexical / 首次 run --source。引擎物化的 board.md / question.json / proposal.plan_path **原样转呈**用户，不自拟摘要替换引擎文案、不替用户圈重点；拿到用户真实答复后以其原话作 `--source` 执行。预选、超时、沉默都不代表选择。
+   - **T0 作者专属**（默认必须上报；常设或逐次原话授权时总编代选）：choose / choose --tier / regroup / back / approve / answer / recontract / revise --proposal-hash / replan / lexical / 首次 run --source。无代选授权时引擎物化的 board.md / question.json / proposal.plan_path **原样转呈**用户，不自拟摘要替换引擎文案、不替用户圈重点、不代答；拿到用户真实答复（或代选授权）后以其原话作 `--source` 执行——代选时逐字记授权原话＋当次代选对象与理由（纪律见 SKILL.md 三档预授权与 authorization.md 头部处置条）。预选、超时、沉默都不代表选择。
    - **T1 预授权治理**（目标内自主，不重复询问）：run 保存授权目标后，advance / watch / claim / renew / pause / resume / 派工 / export / html / complete / deliver / promote（修订属当前授权目标时）在该目标内直接执行。
    - **T2 上报即停**：完整性失败（projection / chain / state_integrity / source_integrity / schema）、repair_exhausted / repair-stalled、remedy_exhausted——保留现场报告用户；不改 schema、不修改或复制临时引擎取消判据、不直接写库。
 6. **留痕**：每条带 --source / --reason / --owner 的治理命令执行后，向 `memory/authorization.md` 追加一行（格式见 memory/templates.md §4；只追加不改写）。
@@ -67,15 +67,19 @@ python <novel-ledger>/scripts/novel.py --project <P> advance --compact
 
 **记忆**：写 memory/teardowns/<书名>.md（含来源 URL 与抓取日期）。
 
-## C. 立项提案与拍板（T0）
+## C. 立项提案（三通道：A 用户想法 / B 总编自决 / C 多案拍板）
 
-- **C1** 由快照+拆解生成 2~3 个**同结构异实现**候选；每案必附差异增量声明：「对标组合已被市场拥有，本书在其上加什么新根规则」——无增量的候选不提出。
-- **C2** 每案附体量档位建议（引用快照 volume_benchmarks；市场数据只作选题信号与档位参考，不写成正文目标、不得说成质量结论）。
-- **C3** 连同快照结论呈用户拍板（T0：不拍板不立项）。
-- **C4** 拍板后总编在工作区选定**独立项目目录**（不覆盖已有项目）；选完设定 ≠ 正文授权。
-- **C5** 写 decisions 记忆。
+- **C0 判通道**（开新书第一步；判定结果写进 decisions 的 selection_mode）：
+  - 用户本次给了想法 → **通道A**；
+  - 无想法但 authorization.md 头部有代选常设授权（以头部实时内容为准，授权可随时撤销）→ 默认**通道B**，不再询问；
+  - 无想法也无常设授权 → **一次性**问用户：给想法即 A、让总编定即 B、要多案即 C；问一次即定，同一本书不重复追问。
+- **C-A 用户想法**（用户核心概念优先，打磨不越权）：总编以品位对想法做诚实压力测试，逐项过——①差异化：与快照/拆解里同方向在位书相比增量是什么（无增量就明说）；②市场对位：快照 crossover 与 volume_benchmarks 里有没有它的读者盘与体量档；③原创红线：序列 B 三条红线逐条自查。结论如实呈用户——可行说可行，有硬伤点破并给替代形状；改核心概念（题材、根规则、主角处境）必须用户点头，总编只打磨表达与结构。快照超过一个月先跑序列 A。
+- **C-B 总编自决**（唯一主见，不骑墙）：从最新 market 快照与 teardowns 形成**一个**主推方向（不搞 2~3 案并列上交），主见必须自答三问——为什么是它（市场证据引用）、它加什么新根规则（差异增量声明）、凭什么跑完（体量档与兑现路径）。理由写进 decisions；随后的十三门等 T0 入口按代选纪律执行（--source 逐字记委托原话——常设或逐次——＋当次代选对象与理由，台账照记，作者可 back/regroup/feedback 纠偏）。
+- **C-C 多案拍板**（现行流程保留）：由快照+拆解生成 2~3 个**同结构异实现**候选；每案必附差异增量声明：「对标组合已被市场拥有，本书在其上加什么新根规则」——无增量的候选不提出；每案附体量档位建议（引用快照 volume_benchmarks；市场数据只作选题信号与档位参考，不写成正文目标、不得说成质量结论）；连同快照结论呈用户拍板（不拍板不立项）。
+- **C4 落定收尾（三通道共同）**：拍板/自决落定后在工作区选定**独立项目目录**（不覆盖已有项目）；选完设定 ≠ 正文授权。
+- **C5 写 decisions 记忆**：含 selection_mode 与 author_quote 对应口径。
 
-**记忆**：写 memory/decisions/YYYY-MM-DD-<slug>.md（全部候选/选定/用户原话/项目绝对路径/对标来源链接/status=active）。
+**记忆**：写 memory/decisions/YYYY-MM-DD-<slug>.md（selection_mode/全部候选或唯一主见/选定/author_quote 按口径/项目绝对路径/对标来源链接/status=active）。
 
 ## D. 开书十三门（唯一开书协议）
 
@@ -121,7 +125,7 @@ checked ≠ 已提交；submit 返回 accepted 才算落账。
 
 1. 先把引擎物化的 work/board.md 内容**原样**贴给用户（或给文件链接），再按 work/question.json 的选项**原样**发起提问——不自拟摘要、不替换引擎文案、不把字段/哈希/命令展示给用户（opening.md:28）。
 2. 第一门（genre）作者未给方向时：把任务目录 catalog.md 十二类目**原文**贴进对话（铺目录是正文文本步骤，不是提问选项；opening.md:45）。
-3. 用户答复后执行其一：
+3. 用户答复后执行其一（常设/逐次代选授权在场时按 §0.5 T0 速查的代选纪律代行并照记台账）：
 
 ```bash
 # 普通门选择（方案 id 用展示组里的真实 id，不一定是 A/B/C）
@@ -136,7 +140,7 @@ python <novel-ledger>/scripts/novel.py --project <P> back --gate <门ID> --reaso
 
 旧组编号不能套新门——传错 id 被拒并返回 valid_options，按 valid_options 重新问用户。预选、超时、沉默都不代表选择（opening.md:30）。
 
-4. 每次 choose / regroup / back 后向 authorization.md 追加用户原话一行。
+4. 每次 choose / regroup / back 后向 authorization.md 追加一行（用户原话；代选时授权原话＋当次代选理由）。
 
 **D3** 十三门全部完成、进入 world_model 阶段后：按引擎返回的任务派工（派工纪律见 F2），进入序列 F。
 
