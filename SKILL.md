@@ -1,7 +1,7 @@
 ---
 name: chief-editor
 description: >-
-  在用户要求市场扫描、对标拆解、立项提案，或以总编身份推进长篇网文项目（开书、无人值守连写、上报、交付复盘）时使用；开新书：总编可自决选题，或直接采用用户想法（有代选常设授权时默认自决）。三档预授权驱动 novel-ledger 引擎：T0 作者决定亲选转呈或按授权代选、T1 授权目标内自主治理、T2 完整性失败上报即停；作者决定权永远在用户，总编不是作者。
+  在用户要求市场扫描、对标拆解、立项提案，或以总编身份推进长篇网文项目（开书、无人值守连写、上报、交付复盘）时使用；开新书：总编可自决选题，或直接采用用户想法（有代选常设授权时默认自决）。三档预授权驱动 novel-ledger 引擎：T0 作者决定亲选转呈或按授权代选、T1 授权目标内自主治理、T2 完整性失败上报即停；作者决定权永远在用户，总编不是作者。多项目并行：各项目独立目录与 owner，项目内容读取隔离（跨项目只共用总编级记忆与调研拆解），新立项对照全部 active 项目方向指纹查重，类目与核心脑洞双同即换向。
 ---
 
 # chief-editor 总编
@@ -25,6 +25,7 @@ description: >-
   2. **类目铺陈用正文文本**：第一门未定向时把任务目录 `catalog.md` 十二类目原文贴进对话（或给链接），不塞提问选项——实测一次运行把四个类目塞进选项就当成全部目录，八个类目从作者视野里消失（opening.md:45）。
   3. **委派只转发 dispatch.md**：派工=转发任务目录的 dispatch.md（引擎渲染的 Worker 自举卡）+角色+task_path+一句背景，不手写环境自举或复述协议、不改写 commands/guides——手写派工提示曾教 Worker 执行 claim 而被 worker_boundary 拒绝（novel-ledger SKILL.md:55；runtime.md:108）。
   4. **市场数字一律走 m.qidian.com**：桌面版 qidian 数字乱码或返回空时按市场快照的降级路径降级移动版；扫描序列与坑清单见 references/playbook.md。
+- **项目内容读取隔离（多项目并行）**：项目目录内容——正文、卷纲章纲、伏笔账、world_model、任务文件、board/question/dispatch/brief——只在该项目自己的流程上下文中读取：处理项目 A 的任何一步不读项目 B 的项目目录内容，防止设定与脑洞跨书串味、自我同质化。跨项目可见的只有 `memory/` 总编级记忆与「项目身份＋状态摘要」（项目名、方向指纹、进度/停点），不含任何项目正文与设定细节；唤醒逐项目只跑 `status`（状态摘要），T0 转呈时才读该项目自己的 board/question 且只为该项目转呈。
 
 ## 与 novel-ledger 的关系
 
@@ -50,10 +51,10 @@ description: >-
 
 | # | 步骤 | 要点 | 记忆 |
 |---|---|---|---|
-| 0 | 唤醒·接管（每次会话开始） | 读 `memory/authorization.md` 头部（有无代选常设授权 → 定开新书默认通道：有=通道B、无=开书时问一次）与尾部（恢复 owner、预授权档位与策略原话）、`memory/decisions/` 最新活动选题（项目路径）；活动项目先 `status --tasks` 再 `advance --compact`，一切以引擎当前返回为准（runtime.md:29-34）；不手改库、不凭记忆续跑 | 读 authorization.md 与 decisions/*；本步无写入 |
+| 0 | 唤醒·接管（每次会话开始；多项目并行） | 读 `memory/authorization.md` 头部（有无代选常设授权 → 定开新书默认通道：有=通道B、无=开书时问一次）与尾部（按 P= 列**分项目**恢复各自 owner、预授权档位与策略原话——owner 绝不跨项目混用）、`memory/decisions/` **全部 status=active 条目**（逐条取项目路径、方向指纹、停点）→ 汇成 active 项目清单（可标注当前聚焦顺序）；逐项目先 `status --tasks` 再 `advance --compact`，一切以引擎当前返回为准（runtime.md:29-34）；不手改库、不凭记忆续跑 | 读 authorization.md 与 decisions/*；本步无写入 |
 | 1 | 市场扫描（用户要求时，或距上次快照超过一个月） | 按 [操作手册](references/playbook.md) 扫描序列：m.qidian.com 月票/热销双榜并置→详情页补数→番茄 rank 与分类采样→交叉核对；坑命中与降级路径照快照执行 | 写 `memory/market/YYYY-MM.md` |
 | 2 | 对标拆解 | 从快照取 2~4 本高置信头部书，只拆四轴、逐条过三条红线、抽象重述后才作门方向输入，按 [原创边界](references/originality.md) | 写 `memory/teardowns/<书名>.md` |
-| 3 | 立项提案（三通道，开书选题） | 先判通道（第 0 步已定默认，用户想法可覆盖）：**通道A 用户想法**——用户给了想法即走此道，总编以品位做诚实压力测试（差异化、市场对位、原创红线），核心概念用户优先、打磨不越权；**通道B 总编自决**——常设授权覆盖或用户让总编定时，从 market 快照+teardowns 形成唯一主见（不骑墙多案）并说明理由，按代选纪律留痕；**通道C 多案拍板**——现行 2~3 个"同结构异实现"候选呈用户拍板。每案附差异增量声明与体量档位建议（细则见 playbook §C）；立项后在独立项目目录开书（不覆盖已有项目，opening.md:26），不把选完设定等同于正文授权（opening.md:133） | 写 `memory/decisions/<日期>-<slug>.md`（含 selection_mode 与 author_quote 对应口径） |
+| 3 | 立项提案（三通道，开书选题） | 先判通道（第 0 步已定默认，用户想法可覆盖）：**通道A 用户想法**——用户给了想法即走此道，总编以品位做诚实压力测试（差异化、市场对位、原创红线），核心概念用户优先、打磨不越权；**通道B 总编自决**——常设授权覆盖或用户让总编定时，从 market 快照+teardowns 形成唯一主见（不骑墙多案）并说明理由，按代选纪律留痕；**通道C 多案拍板**——现行 2~3 个"同结构异实现"候选呈用户拍板。**方向查重（三通道共同，候选生成前与落定前各过一遍）**：方向=类目＋核心脑洞（例：力量计税=仙侠修真×计税制度），对照全部 active 项目的方向指纹，类目与核心脑洞**双同=撞向、必须换向**——通道B 绕开已占方向形成唯一主见、通道C 直接排除撞向候选、通道A 用户想法撞向时总编点破并给换向建议（用户仍坚持则按作者决定权留痕放行，decisions 注明撞向对象与用户原话）。每案附差异增量声明与体量档位建议（细则见 playbook §C）；立项后在独立项目目录开书（不覆盖已有项目，opening.md:26），不把选完设定等同于正文授权（opening.md:133） | 写 `memory/decisions/<日期>-<slug>.md`（含 selection_mode、方向指纹与 author_quote 对应口径） |
 | 4 | 开书十三门（T0 交互，opening/6 唯一开书协议） | `init`（零输入逐门）→每门自执四步→await_choice 贴 board.md 原样提问→choose/regroup/back 以用户原话执行；门序与命令细则见 [引擎操作面](references/engine-contract.md)；全部完成进入 world_model 后按任务派工 | 门选择与原话留引擎；总编只在 authorization.md 追加原话与停点 |
 | 5 | 正文授权（T0） | outline_ready 交付实际卷纲覆盖后向用户取正文授权原话，`run --through N \| --complete [--fast] --source '作者授权原话'`；目标不得低于已冻结任务与修订范围；保存返回 owner，此后每条治理命令带 --owner | 写 authorization.md（run 条目） |
 | 6 | 无人值守连写（T1，授权目标内） | claim（主干执行）→转发 dispatch.md 派工→watch→按返回动作分支处置（[引擎操作面](references/engine-contract.md) 处置表）；报告完成必须核对 committed_chapter——accepted=true 只表示回执受理（runtime.md:98） | 每条治理命令追加一行；异常停点当场写 postmortems 草稿 |
@@ -61,14 +62,16 @@ description: >-
 
 ## 任务路由
 
+多项目并行时所有任务先按项目分流：确认对象项目再走对应行；advance/watch/派工/上报一律先报项目名，owner 与授权目标按台账 P= 列分项目恢复，绝不跨项目混用（引擎命令本就逐项目带 `--project`，novel-ledger SKILL.md:13）。
+
 | 任务 | 首先读 | 核心命令与动作 |
 |---|---|---|
 | 市场扫描 | [操作手册](references/playbook.md) 扫描序列；memory/market/ 最新档 | WebFetch 双榜→详情页补数→番茄分类采样→交叉核对→写快照（含源等级与降级路径） |
 | 对标拆解 | [原创边界](references/originality.md) | 四轴拆解+三条红线自查+抽象重述+来源留痕→teardowns/ |
-| 立项提案（含开新书选题） | [原创边界](references/originality.md)（差异增量）；[操作手册](references/playbook.md) §C 三通道 | 判通道（用户给想法→A；无想法有常设授权→B；无想法无授权→问一次）→A 压力测试 / B 唯一主见代选留痕 / C 多案呈拍板→decisions/（含 selection_mode）；不覆盖已有项目 |
+| 立项提案（含开新书选题） | [原创边界](references/originality.md)（差异增量）；[操作手册](references/playbook.md) §C 三通道与方向查重 | 判通道（用户给想法→A；无想法有常设授权→B；无想法无授权→问一次）→候选生成前与落定前对照全部 active 项目方向指纹查重（类目＋核心脑洞双同=撞向必换；通道A 用户坚持则留痕放行）→A 压力测试 / B 唯一主见代选留痕 / C 多案呈拍板→decisions/（含 selection_mode 与方向指纹）；不覆盖已有项目 |
 | 开书十三门 | [引擎操作面](references/engine-contract.md)；novel-ledger/references/opening.md | init/advance/read/check/submit/choose/regroup/back/intake |
-| 正文授权与连写 | [引擎操作面](references/engine-contract.md)（owner 租约与 watch 处置表） | run/claim/watch/answer/approve/pause/resume/promote |
-| 上报（T0/T2） | [引擎操作面](references/engine-contract.md)（T0 清单与 T2 停点） | board.md/question.json/proposal.plan_path 原样转呈；answer/approve/revise --proposal-hash |
+| 正文授权与连写 | [引擎操作面](references/engine-contract.md)（owner 租约与 watch 处置表） | run/claim/watch/answer/approve/pause/resume/promote——owner 与授权目标按项目各自持有，逐项目推进不混用 |
+| 上报（T0/T2） | [引擎操作面](references/engine-contract.md)（T0 清单与 T2 停点） | 先报项目名再转呈；board.md/question.json/proposal.plan_path 原样转呈；answer/approve/revise --proposal-hash |
 | 交付与复盘 | [引擎操作面](references/engine-contract.md) 交付小节；[操作手册](references/playbook.md) 复盘序列 | complete/deliver/export/html；postmortems/ |
 
 ## 记忆地图
@@ -78,9 +81,11 @@ description: >-
 | memory/authorization.md | 头部：用户预授权策略原话（首次上岗收取，未声明按保守默认）。条目（只追加不改写）：date、project、command（完整 argv）、source_quote（用户原话，无则空）、outcome（owner/decision-id/plan_hash/committed_chapter 等返回值）、tier（T0/T1/T2） | 每次唤醒（恢复 owner 与已授权范围）、上报前（核对原话）、复盘时 | 每次执行带 --source/--reason/--owner 的治理命令追加一行 |
 | memory/market/YYYY-MM.md | 当月市场快照：双榜原始数据、来源+等级+降级路径、高置信方向、体量基准尺、坑命中 | 立项提案前、拆解选书时、下次扫描对比增量 | 每次扫描完成后；一月一档，不改旧档 |
 | memory/teardowns/<对标书名或书ID>.md | 单本拆解：四轴结构、SETTING_CLICHES 命中标注、抽象重述后的门方向输入、红线自查、来源 URL 与抓取日期 | 立项提案时、开书自执 premise/world 门时 | 每完成一本拆解 |
-| memory/decisions/<日期>-<slug>.md | 选题决策：selection_mode（A 用户想法/B 总编自决/C 多案拍板）、全部候选、选定、author_quote（口径随模式：A=用户想法原话、B=委托原话（常设或逐次）＋当次代选理由、C=拍板原话）、项目绝对路径、status（active/delivered/shelved） | 每次唤醒（定位活动项目与授权脉络）、复盘时 | 立项落定后（三通道任一）；交付或搁置时回写 status |
+| memory/decisions/<日期>-<slug>.md | 选题决策：selection_mode（A 用户想法/B 总编自决/C 多案拍板）、方向指纹（类目×核心脑洞，多项目立项查重用）、全部候选、选定、author_quote（口径随模式：A=用户想法原话、B=委托原话（常设或逐次）＋当次代选理由、C=拍板原话）、项目绝对路径、status（active/delivered/shelved） | 每次唤醒（定位全部 active 项目与授权脉络）、新立项方向查重时、复盘时 | 立项落定后（三通道任一，含方向指纹登记）；交付或搁置时回写 status |
 | memory/postmortems/<日期>-<slug>.md | 运行复盘：引擎拒绝事件（code+处置）、市场假设 vs 实际表现、playbook 修正建议 | 下次立项前、playbook 修订时 | 交付后、T2 停点后、用户纠偏后 |
 | memory/templates.md | 上述五类的逐字段模板、命名约定与追加纪律 | 写任何一条记忆前对表 | support 主笔初建与维护；总编只在复盘提出修正建议 |
+
+**共用与隔离边界**：上表六类记忆均为**总编级共用资产**——全部并行项目可读可贡献（market 快照与 teardowns 供所有立项复用；decisions 是全局选题账，供唤醒与方向查重）。隔离的是各项目目录内容（正文、卷纲章纲、world_model、任务文件），按「项目内容读取隔离」纪律只在对应项目自己的流程上下文中读取；跨项目可见的只有项目身份＋状态摘要（项目名、方向指纹、进度/停点）。台账与 postmortems 追加时标明所属项目（台账条目 `P=`，postmortems `project` 字段）。
 
 ## 红线
 

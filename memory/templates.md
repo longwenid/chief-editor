@@ -109,7 +109,7 @@
 ## 3. 选题决策 `decisions/YYYY-MM-DD-<slug>.md`
 
 - **何时写**：立项落定后（三通道任一：A 用户想法——压力测试结论呈用户、落定后 / B 总编自决 / C 用户拍板）；交付或搁置时回写 status（唯一允许的回写）。
-- **何时读**：每次唤醒（定位活动项目与授权脉络）、复盘时。
+- **何时读**：每次唤醒（定位全部 active 项目与授权脉络）、新立项方向查重时（playbook §C1）、复盘时。
 - **骨架（照抄后填）**：
 
 ```markdown
@@ -118,6 +118,7 @@
 - date: YYYY-MM-DD
 - slug: 
 - selection_mode: A-用户想法 / B-总编自决 / C-多案拍板   # 判定见 SKILL.md 控制回路第3步与 playbook §C
+- direction_fingerprint: <类目>×<核心脑洞>   # 方向指纹（多项目立项查重用，见 playbook §C1）：类目与核心脑洞双同=撞向必换
 - status: active          # 交付后回写 delivered；搁置回写 shelved
 - project_path: <项目绝对路径>
 - authorization_index: <对应 authorization.md 条目日期>
@@ -136,7 +137,7 @@
 > 
 ```
 
-- **填写规则**：selection_mode 三选一必填；candidates 必须含全部候选与各自差异增量声明（通道B 只记唯一主见时也按候选格式留档；无增量的候选当初就不该提出）；author_quote 逐字保留，不改写不摘要——通道B 先逐字引委托原话（常设授权或逐次委托原话），当次代选理由另起一行补记（理由可述，原话不可动）。
+- **填写规则**：selection_mode 三选一必填；direction_fingerprint 必填（类目×核心脑洞一句话，例：仙侠修真×计税制度；通道A 用户坚持撞向方向放行时照常落定，但在 chosen 下注明撞向对象与用户坚持原话）；candidates 必须含全部候选与各自差异增量声明（通道B 只记唯一主见时也按候选格式留档；无增量的候选当初就不该提出）；author_quote 逐字保留，不改写不摘要——通道B 先逐字引委托原话（常设授权或逐次委托原话），当次代选理由另起一行补记（理由可述，原话不可动）。
 
 ## 4. 授权台账 `memory/authorization.md`（只追加不改写）
 

@@ -6,7 +6,7 @@
 
 ## 0. 通用约定（每条序列开始前过一遍）
 
-1. **替换符**：`<novel-ledger>` = `C:/Users/longwen/.zcode/skills/novel-ledger`；`<P>` = 项目目录绝对路径；`<owner>` = run 返回的 owner；`<task>` = 任务 ID；`<会话ID>` = 宿主 Worker 会话 ID。
+1. **替换符**：`<novel-ledger>` = `C:/Users/longwen/.zcode/skills/novel-ledger`；`<P>` = 项目目录绝对路径；`<owner>` = run 返回的 owner；`<task>` = 任务 ID；`<会话ID>` = 宿主 Worker 会话 ID。多项目并行时每个项目各自代入 `<P>`（<P1>/<P2>…），owner 各项目各持一份、绝不跨项目混用。
 2. **Windows**：一律用 `python`（不是 python3），Git Bash 执行。
 3. **UTF-8**：会话开始先 `export PYTHONUTF8=1`——中文 JSON 与长文本经引擎物化文件读写时必设；不在控制台直接打印长 JSON（GBK 控制台会乱码），读盘里的文件。
 4. **长内容走文件**：board.md / question.json / catalog.md / brief.md / result.template.json / result.json / dispatch.md / proposal.plan_path 都是引擎物化到磁盘的文件——读盘、改盘、`--file` 提交；绝不在命令行内联长中文。
@@ -18,19 +18,25 @@
 7. **顺序红线**：author_decision 先 answer 再 advance / recontract——答复会冻结此前派工（stale_task，application.py:647），先派工后答复等于白派一个 Worker。
 8. **完成判定**：Worker 报告完成必须核对返回里的 committed_chapter；accepted=true 只表示回执已受理，可能仍产生返修候选。
 
-## S. 唤醒·接管（每次会话开始）
+## S. 唤醒·接管（每次会话开始；多项目并行）
 
 ```bash
 export PYTHONUTF8=1
 # ① 恢复授权脉络（只读不写）：
-#    memory/authorization.md 尾部 → owner、预授权档位、策略原话
-#    memory/decisions/ 最新 status=active 条目 → 项目绝对路径
-# ② 一切以引擎当前返回为准（不手改库、不凭记忆续跑）：
-python <novel-ledger>/scripts/novel.py --project <P> status --tasks
-python <novel-ledger>/scripts/novel.py --project <P> advance --compact
+#    memory/decisions/ 全部 status=active 条目 → 逐条取 项目绝对路径、方向指纹、停点
+#      → 汇成 active 项目清单（可标注当前聚焦顺序；既有条目无方向指纹字段时
+#        从其 chosen 与门选择提炼，例：力量计税=仙侠修真×计税制度，不回溯改写原条目）
+#    memory/authorization.md 尾部 → 按 P= 列分项目恢复各自 owner、预授权档位、策略原话
+#      （owner 绝不跨项目混用）
+# ② 逐项目（有几个 active 项目就逐个过，命令本就带 --project），
+#    一切以引擎当前返回为准（不手改库、不凭记忆续跑）：
+python <novel-ledger>/scripts/novel.py --project <P1> status --tasks
+python <novel-ledger>/scripts/novel.py --project <P1> advance --compact
+python <novel-ledger>/scripts/novel.py --project <P2> status --tasks
+python <novel-ledger>/scripts/novel.py --project <P2> advance --compact
 ```
 
-按 advance 返回的 action 进入对应序列（处置表见 F4 与序列 G）：task_ready / await_choice / await_author / author_decision / paused / revision_blocked / revision_ready / ready_to_complete / target_reached。
+按各项目 advance 返回的 action 进入对应序列（处置表见 F4 与序列 G）：task_ready / await_choice / await_author / author_decision / paused / revision_blocked / revision_ready / ready_to_complete / target_reached。逐项目独立处置、互不越位：报告与派工一律先报项目名；唤醒只跑 status（状态摘要），项目目录内容只在对应项目的流程步骤里读（读取隔离纪律见 SKILL.md）。
 
 **记忆**：读 authorization.md 与 decisions/*；本步无写入。
 
@@ -73,13 +79,18 @@ python <novel-ledger>/scripts/novel.py --project <P> advance --compact
   - 用户本次给了想法 → **通道A**；
   - 无想法但 authorization.md 头部有代选常设授权（以头部实时内容为准，授权可随时撤销）→ 默认**通道B**，不再询问；
   - 无想法也无常设授权 → **一次性**问用户：给想法即 A、让总编定即 B、要多案即 C；问一次即定，同一本书不重复追问。
-- **C-A 用户想法**（用户核心概念优先，打磨不越权）：总编以品位对想法做诚实压力测试，逐项过——①差异化：与快照/拆解里同方向在位书相比增量是什么（无增量就明说）；②市场对位：快照 crossover 与 volume_benchmarks 里有没有它的读者盘与体量档；③原创红线：序列 B 三条红线逐条自查。结论如实呈用户——可行说可行，有硬伤点破并给替代形状；改核心概念（题材、根规则、主角处境）必须用户点头，总编只打磨表达与结构。快照超过一个月先跑序列 A。
-- **C-B 总编自决**（唯一主见，不骑墙）：从最新 market 快照与 teardowns 形成**一个**主推方向（不搞 2~3 案并列上交），主见必须自答三问——为什么是它（市场证据引用）、它加什么新根规则（差异增量声明）、凭什么跑完（体量档与兑现路径）。理由写进 decisions；随后的十三门等 T0 入口按代选纪律执行（--source 逐字记委托原话——常设或逐次——＋当次代选对象与理由，台账照记，作者可 back/regroup/feedback 纠偏）。
-- **C-C 多案拍板**（现行流程保留）：由快照+拆解生成 2~3 个**同结构异实现**候选；每案必附差异增量声明：「对标组合已被市场拥有，本书在其上加什么新根规则」——无增量的候选不提出；每案附体量档位建议（引用快照 volume_benchmarks；市场数据只作选题信号与档位参考，不写成正文目标、不得说成质量结论）；连同快照结论呈用户拍板（不拍板不立项）。
+- **C1 方向查重（三通道共同；候选生成前与落定前各过一遍）**：方向 = **类目＋核心脑洞**（例：力量计税 = 仙侠修真×计税制度、神明维修工 = 都市异能×神话残骸维修）。对照 `memory/decisions/` 全部 status=active 条目的方向指纹——**类目与核心脑洞双同 = 撞向，必须换方向**；仅同其一不算撞向（差异增量声明里说清增量即可）。既有条目没有方向指纹字段时从其 chosen 与门选择提炼，不回溯改写原条目。按通道处置：
+  - **通道B**：绕开全部已占方向后形成唯一主见——主见的类目或核心脑洞至少其一不与任何 active 项目相同；
+  - **通道C**：候选生成时直接排除撞向候选（"同结构异实现"不豁免类目＋脑洞双同）；
+  - **通道A**：用户想法撞向时总编点破（指明与哪个项目撞、撞在哪一维）并给换向建议；用户仍坚持则按作者决定权留痕放行——decisions 注明撞向对象与用户坚持原话。
+  - 查重对照面只有方向指纹与状态摘要（项目名/指纹/停点），不读其他项目的正文与设定（读取隔离纪律见 SKILL.md）。
+- **C-A 用户想法**（用户核心概念优先，打磨不越权）：总编以品位对想法做诚实压力测试，逐项过——①差异化：与快照/拆解里同方向在位书相比增量是什么（无增量就明说）；②市场对位：快照 crossover 与 volume_benchmarks 里有没有它的读者盘与体量档；③原创红线：序列 B 三条红线逐条自查；④方向查重（C1）：撞向按 C1 通道A 处置。结论如实呈用户——可行说可行，有硬伤点破并给替代形状；改核心概念（题材、根规则、主角处境）必须用户点头，总编只打磨表达与结构。快照超过一个月先跑序列 A。
+- **C-B 总编自决**（唯一主见，不骑墙）：从最新 market 快照与 teardowns 形成**一个**主推方向（不搞 2~3 案并列上交），主见须已过 C1 查重（绕开全部已占方向）；主见必须自答三问——为什么是它（市场证据引用）、它加什么新根规则（差异增量声明）、凭什么跑完（体量档与兑现路径）。理由写进 decisions；随后的十三门等 T0 入口按代选纪律执行（--source 逐字记委托原话——常设或逐次——＋当次代选对象与理由，台账照记，作者可 back/regroup/feedback 纠偏）。
+- **C-C 多案拍板**（现行流程保留）：由快照+拆解生成 2~3 个**同结构异实现**候选，生成时按 C1 排除与 active 项目撞向的候选；每案必附差异增量声明：「对标组合已被市场拥有，本书在其上加什么新根规则」——无增量的候选不提出；每案附体量档位建议（引用快照 volume_benchmarks；市场数据只作选题信号与档位参考，不写成正文目标、不得说成质量结论）；连同快照结论呈用户拍板（不拍板不立项）。
 - **C4 落定收尾（三通道共同）**：拍板/自决落定后在工作区选定**独立项目目录**（不覆盖已有项目）；选完设定 ≠ 正文授权。
-- **C5 写 decisions 记忆**：含 selection_mode 与 author_quote 对应口径。
+- **C5 写 decisions 记忆**：含 selection_mode、direction_fingerprint（方向指纹）与 author_quote 对应口径；通道A 撞向放行时另注明撞向对象与用户坚持原话。
 
-**记忆**：写 memory/decisions/YYYY-MM-DD-<slug>.md（selection_mode/全部候选或唯一主见/选定/author_quote 按口径/项目绝对路径/对标来源链接/status=active）。
+**记忆**：写 memory/decisions/YYYY-MM-DD-<slug>.md（selection_mode/方向指纹/全部候选或唯一主见/选定/author_quote 按口径/项目绝对路径/对标来源链接/status=active）。
 
 ## D. 开书十三门（唯一开书协议）
 
@@ -163,7 +174,7 @@ python <novel-ledger>/scripts/novel.py --project <P> run --through <N> --fast --
 
 ## F. 无人值守连写循环（T1，授权目标内）
 
-每轮只做一件事：认领 → 派工 → 等待 → 按返回动作分支。
+每轮只做一件事：认领 → 派工 → 等待 → 按返回动作分支。多项目并行时逐项目各跑本循环：每条命令与上报先报项目名，owner 不跨项目混用；处理任一项目的任何一步不读其他项目的项目目录内容，派工背景一句只取自本项目的方向指纹与状态摘要（读取隔离纪律见 SKILL.md）。
 
 **F1 主干认领**（初始认领必须主干进程执行，Worker 自己 claim 会被 worker_boundary 拒绝，novel.py:211-217）：
 
