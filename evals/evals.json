@@ -1,0 +1,150 @@
+{
+  "skill_name": "chief-editor",
+  "note": "触发集：should_trigger 检验入口是否能被正确唤起；should_not_trigger 里尽量放近邻误触发（改引擎、写书评、纯讨论、改技能自身文档），这些才是真考验。",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "扫一下起点月票和畅销双榜，给我看看这个月什么方向最热",
+      "should_trigger": true,
+      "why": "市场扫描，标准触发句"
+    },
+    {
+      "id": 2,
+      "prompt": "开新书吧，我想写个把修炼资源当货币征税的设定，你帮我看看能不能成",
+      "should_trigger": true,
+      "why": "开新书 + 用户想法（通道 A），需要压力测试与立项"
+    },
+    {
+      "id": 3,
+      "prompt": "上次那个《力量计税》写到第几章了？接着往下写",
+      "should_trigger": true,
+      "why": "续跑已有项目，需要唤醒·接管并恢复 owner"
+    },
+    {
+      "id": 4,
+      "prompt": "帮我拆一下《没钱修什么仙》，我想知道它的结构为什么能跑起来",
+      "should_trigger": true,
+      "why": "对标拆解，且要落到四轴与原创边界"
+    },
+    {
+      "id": 5,
+      "prompt": "这本书第一卷写完了，你看看节奏有没有问题，能不能进第二卷",
+      "should_trigger": true,
+      "why": "连写中的阶段判断与卷末处置"
+    },
+    {
+      "id": 6,
+      "prompt": "总编，我这边没想法，你直接定个方向开一本，别问我了",
+      "should_trigger": true,
+      "why": "委托代选（通道 B）"
+    },
+    {
+      "id": 7,
+      "prompt": "把这本书导出成 html 给我看看，然后做个交付复盘",
+      "should_trigger": true,
+      "why": "交付与复盘"
+    },
+    {
+      "id": 8,
+      "prompt": "第十三章我想改成主角当场翻脸，你安排返修一下",
+      "should_trigger": true,
+      "why": "作者发起的修订（T0 入口）"
+    },
+    {
+      "id": 9,
+      "prompt": "番茄那边免费盘最近什么类型起量？和起点对照一下",
+      "should_trigger": true,
+      "why": "免费盘采样与双平台交叉核对"
+    },
+    {
+      "id": 10,
+      "prompt": "这本写完先别开新的，把这次踩的坑记下来，下次立项前我要看",
+      "should_trigger": true,
+      "why": "复盘与记忆写入"
+    },
+    {
+      "id": 11,
+      "prompt": "novel-ledger 那个 engine 的 revision_bounds 判据我想改宽一点，你帮我改 contracts.py",
+      "should_trigger": false,
+      "why": "近邻误触发：改引擎代码，属引擎仓库，技能明令只读"
+    },
+    {
+      "id": 12,
+      "prompt": "帮我写一篇《诡秘之主》的书评，八百字左右",
+      "should_trigger": false,
+      "why": "近邻误触发：书评，不是选题或写作流程"
+    },
+    {
+      "id": 13,
+      "prompt": "网文现在为什么都爱写系统流？随便聊聊",
+      "should_trigger": false,
+      "why": "近邻误触发：纯讨论，不应启动创作"
+    },
+    {
+      "id": 14,
+      "prompt": "把 chief-editor 这个技能的 description 改短一点，顺便把红线拆出去",
+      "should_trigger": false,
+      "why": "近邻误触发：改技能自身文档，走 .zcode 修订流水线，不是执行总编任务"
+    },
+    {
+      "id": 15,
+      "prompt": "帮我把这份 Excel 里的榜单数据做成柱状图",
+      "should_trigger": false,
+      "why": "同词不同义：手上有现成数据，与市场扫描无关"
+    },
+    {
+      "id": 16,
+      "prompt": "我小说写到一半卡住了，主角动机想不通，你帮我理理",
+      "should_trigger": false,
+      "why": "近邻误触发：纯创作咨询，不涉及引擎项目与治理流程"
+    },
+    {
+      "id": 17,
+      "prompt": "帮我在番茄注册个作者账号，然后发三章试试水",
+      "should_trigger": false,
+      "why": "平台操作，不是本技能职责"
+    },
+    {
+      "id": 18,
+      "prompt": "review 一下我刚提交的这个 PR，看有没有并发问题",
+      "should_trigger": false,
+      "why": "通用代码审查，与技能无关"
+    },
+    {
+      "id": 19,
+      "prompt": "只分析《没钱修什么仙》的结构，先别帮我立项或开书",
+      "should_trigger": true,
+      "why": "独立结构拆解属于职责，交付后结束，不隐含立项授权"
+    },
+    {
+      "id": 20,
+      "prompt": "分析一下 chief-editor 这个项目的 skill，别运行写作流程",
+      "should_trigger": false,
+      "why": "技能自身分析，不执行总编创作治理流程"
+    },
+    {
+      "id": 21,
+      "prompt": "这本书上次写到哪了？只查进度，暂时别继续",
+      "should_trigger": true,
+      "why": "已有项目状态查询，唤醒只读分支不推进或派工"
+    },
+    {
+      "id": 22,
+      "prompt": "总编，这组开书方案都不满意，保留公开账本质证，要求新案的规则争辩有实际代价",
+      "should_trigger": true,
+      "why": "当前开书门自定义细化，先核对授权再regroup，不机械选择"
+    },
+    {
+      "id": 23,
+      "prompt": "我自拟一个本门概念：登记权可转让但连带旧债，把它作为候选重新出案给我看",
+      "should_trigger": true,
+      "why": "自拟候选走真实门回执、核验、展示与选择，不直接自由文本choose"
+    },
+    {
+      "id": 24,
+      "prompt": "给chief-editor这个Skill增加自定义需求入口并补测试",
+      "should_trigger": false,
+      "why": "Skill自身重设计，不启动总编开书或连写流程"
+    }
+  ]
+}

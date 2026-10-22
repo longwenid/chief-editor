@@ -1,334 +1,186 @@
 /* zcode-workflow
-description: chief-editor 技能修订流水线，首次运行即「总编技能升级：品位与开书双通道」：总编技能主笔按需求原话对
-  SKILL.md/playbook/templates/engine-contract 做外科手术式修订，独立评审员读修订后全文与 git diff
-  对照需求评审（最多两轮、主笔按意见收口），脚本再以 files.grep 机械核验必含/组内任一/必除标记，不过补一轮，最后交付修订后
-  SKILL.md（主产物）与完整 diff 对照。
-whenToUse: 要修订 chief-editor 技能自身的文档（人设、流程、模板、红线表述等），并需要「主笔落盘＋独立评审＋grep
-  机械核验」三重把关时。传入 requirement/background/changes/redlines
-  定制本次修订任务书，reviewQuestions
-  定制评审问题，gateMustInclude/gateMustIncludeAny/gateMustExclude
-  定制机械核验标记；全部参数都有首次运行的默认值，不传即复跑原修订。不适用于以总编身份执行市场扫描、开书、连写等日常任务（直接用 chief-editor
-  技能），也不适用于修改 novel-ledger 引擎目录。
-args:
-  background:
-    type: string
-    description: 背景事实清单（多行文本）：主笔动笔前须逐条核实的现状事实，每行一条。
-    default: >-
-      - memory/authorization.md 头部已有用户 2026-10-21
-      常设授权原话「后续需要总编都帮我选了，我需要的是无人持续」，总编已据此代选过《力量计税》全部十三门（台账逐条在案）；
-
-      - 但 SKILL.md 现文仍写「绝不替用户选」「不代答、不预选」，与该常设授权矛盾（authorization.md
-      只在局部声明冲突以原话为准）；
-
-      - 立项（SKILL.md 控制回路第 3 步 / references/playbook.md §C）现只有「多案拍板」单一模式。
-  changes:
-    type: string
-    description: 改什么：触点与改法逐条清单（多行文本），主笔的修订任务书。
-    default: |-
-      1. 人设升级（SKILL.md 开头总编定位段 + 「身份与教训红线」节）：总编有品位 = 市场判断 + 审美主见——拆解有眼光、提案有主见、敢拍板并给得出理由；品位用于选题判断、提案质量与压力测试，不把总编变成作者。作者决定权元原则改述为三态：作者亲选 / 作者以原话（常设或逐次）委托代选 / 未授权则保守转呈。
-      2. 开书选题三通道（SKILL.md 控制回路第 3 步、任务路由「立项提案」行；references/playbook.md §C；memory/templates.md §3 decisions 模板加「选题模式」字段）：
-         - 通道A 用户想法：用户给出想法即走此道；总编以品位做诚实压力测试（差异化、市场对位、原创红线），用户核心概念优先，打磨不越权；
-         - 通道B 总编自决：用户无想法或常设授权覆盖时；总编从 memory/market 快照与 teardowns 形成唯一主见（明确不搞骑墙多案），说明理由，按既有代选纪律留痕；
-         - 通道C 多案拍板：现行 2~3 候选呈拍板流程保留为第三选项；
-         - 默认判定：唤醒（第 0 步）读 authorization.md 头部，有代选常设授权 → 开新书默认通道B；无 → 开新书时一次性问用户（给想法即A、让总编定即B、要多案即C）。
-      3. 矛盾消解：SKILL.md 三档预授权表 T0 行、「红线一」等处的「绝不代答/不预选」改为与常设授权共存的三态表述；references/engine-contract.md「作者决定入口（T0…）」小节标题旁加一句让位说明（指向 SKILL.md 代选纪律），该文件其余内容不动。
-      4. SKILL.md frontmatter description：保留既有触发词，补上「开新书：总编自决选题或直接采用用户想法」一类触发语义。
-      5. SKILL.md 记忆地图 decisions 行同步「选题模式」字段（含各模式下 author_quote 的取值口径：用户想法原话 / 拍板原话 / 常设授权原话＋代选理由）。
-  gateMustExclude:
-    type: json
-    description: 机械核验：SKILL.md 必须不再包含的旧表述（每项都须零命中）。
-    default:
-      - 绝不替用户选
-  gateMustInclude:
-    type: json
-    description: 机械核验：SKILL.md 必须包含的标记，字符串数组，每一项都必须命中。
-    default:
-      - 品位
-      - 想法
-  gateMustIncludeAny:
-    type: json
-    description: 机械核验：组内至少一项命中的标记（OR 语义），如同义改写「自决/自行决策」。空数组表示无此项约束。
-    default:
-      - 自决
-      - 自行决策
-  redlines:
-    type: string
-    description: 红线（多行文本）：违反即返工的边界约束。
-    default: 不动
-      $NOVEL_LEDGER（C:/Users/longwen/.zcode/skills/novel-ledger）目录任何文件；不改引擎命令语义与
-      T2 纪律；不回溯改写 memory/authorization.md 与 memory/decisions、teardowns
-      既有条目（memory/templates.md 是模板文件，可改）；保持既有文风。
-  requirement:
-    type: string
-    description: 用户需求原话，逐字。主笔动笔与独立评审批准都以它为对照基准。
-    default: skill里面的总编需要是一个有品位的，启动新书能自行决策、或者选择输入自己想法的。
-  reviewQuestions:
-    type: json
-    description: 独立评审的检查问题清单，字符串数组，逐条编号呈给评审员；批准标准为各问全部成立且无 high/medium 未决。
-    default:
-      - 三通道（用户想法/总编自决/多案拍板）从唤醒→模式判定→立项→开书→留痕是否每一步都能照抄执行，有没有断点（如默认判定链断裂、模板新字段没有对应写入规程、通道B的留痕口径缺失）；
-      - 「有品位」是否落成了具体可执行的人设条款（敢拍板、给得出理由、压力测试有标准），还是空口号；
-      - 旧矛盾（「绝不替用户选」vs 常设授权代选）是否彻底消解，且作者决定权元原则在新表述下自洽；
-      - 有没有破坏引擎契约、T2 纪律，或误导未来会话执行者的措辞。
+ description: chief-editor 文档修订：明确需求→主笔→三项静态检查与全树快照→独立评审→同版本复验→交付。失败闭锁。
+ whenToUse: 修改本技能文档时使用。不执行市场扫描或写作，不修改引擎或外置运行时记忆。必须显式提供本次 requirement；不复用历史授权或旧需求。真实宿主需要可执行 Python/Git 的独立 agent，无法执行即 blocked。
+ args:
+   requirement:
+     type: string
+     description: 本次用户需求原话，必填；未传不修改文件。
+   background:
+     type: string
+     description: 待核实背景；不视为已核实事实或新授权。
+     default: 按当前 SKILL.md、references 与 memory/templates.md 核实现状；路径解析查 references/environment.md。运行时记忆已外置，本次默认不读取。
+   changes:
+     type: string
+     description: 本次允许修改的触点与目标；未传时严格按 requirement 确定。
+   redlines:
+     type: string
+     description: 在固定边界之上的本次额外约束，不能撤销固定边界。
+   reviewQuestions:
+     type: json
+     description: 附加评审问题，空数组表示没有附加问题；固定安全和一致性问题仍须评审。
+     default: []
+   gateMustInclude:
+     type: json
+     description: SKILL.md 必含的字面标记，空数组禁用此项。
+     default: []
+   gateMustIncludeAny:
+     type: json
+     description: SKILL.md 至少含其一的字面标记，空数组禁用此项。
+     default: []
+   gateMustExclude:
+     type: json
+     description: SKILL.md 必须不含的字面标记，空数组禁用此项。
+     default: []
 */
-interface RevisionReport {
-  /** 每个改动文件：改了什么、为什么这样改。 */
-  changed: { path: string; what: string; why: string }[];
-  /** 修订如何接进技能既有回路的，三五句话。 */
-  wiring: string;
-  /** 明确没动的文件与原因（如 novel-ledger 引擎目录）。 */
-  notTouched: string[];
-}
 
-interface ReviewFinding {
-  /** 文件与位置（如 SKILL.md 三档预授权表 T0 行）。 */
-  where: string;
-  /** 一句话说清问题：会误导谁、断在哪。 */
-  issue: string;
-  /** high=破坏作者决定权或引擎契约；medium=通道断点或人设落不了地；low=措辞。 */
-  severity: "low" | "medium" | "high";
-  /** 怎么改的一句话建议。 */
-  suggestion: string;
-}
-
-interface Review {
-  /** 各问可照抄执行、矛盾已消解、元原则与引擎契约无损时才为 true。 */
-  approved: boolean;
-  findings: ReviewFinding[];
-}
-
-interface FixOutcome {
-  /** 已处置意见的逐条摘要：改了什么。 */
-  applied: string[];
-  /** 不接受的评审意见与理由（没有则空数组）。 */
-  rejected: { issue: string; reason: string }[];
-}
-
-interface Finding {
-  /** Workspace-relative path, with a line when it applies. */
-  where: string;
-  /** One sentence: what was found. */
-  what: string;
-  /** What showed it. */
-  evidence: string;
-  /** "verified" when confirmed; "unconfirmed" when not. */
-  status: "verified" | "unconfirmed";
-  /** How much it matters. */
-  severity: "low" | "medium" | "high";
-}
-interface WorkflowReport {
-  /** Two or three sentences answering what the user asked for. */
-  conclusion: string;
-  findings: Finding[];
-  /** What the run checked and how. */
-  verified: string[];
-  /** What the run did not look at or could not check, and why. */
-  notCovered: string[];
-}
-
-// ── 默认值＝首次运行（总编技能升级：品位与开书双通道）实际使用的值 ──
-
-const DEFAULT_REQUIREMENT =
-  "skill里面的总编需要是一个有品位的，启动新书能自行决策、或者选择输入自己想法的。";
-
-const DEFAULT_BACKGROUND = [
-  "- memory/authorization.md 头部已有用户 2026-10-21 常设授权原话「后续需要总编都帮我选了，我需要的是无人持续」，总编已据此代选过《力量计税》全部十三门（台账逐条在案）；",
-  "- 但 SKILL.md 现文仍写「绝不替用户选」「不代答、不预选」，与该常设授权矛盾（authorization.md 只在局部声明冲突以原话为准）；",
-  "- 立项（SKILL.md 控制回路第 3 步 / references/playbook.md §C）现只有「多案拍板」单一模式。",
-].join("\n");
-
-const DEFAULT_CHANGES = [
-  "1. 人设升级（SKILL.md 开头总编定位段 + 「身份与教训红线」节）：总编有品位 = 市场判断 + 审美主见——拆解有眼光、提案有主见、敢拍板并给得出理由；品位用于选题判断、提案质量与压力测试，不把总编变成作者。作者决定权元原则改述为三态：作者亲选 / 作者以原话（常设或逐次）委托代选 / 未授权则保守转呈。",
-  "2. 开书选题三通道（SKILL.md 控制回路第 3 步、任务路由「立项提案」行；references/playbook.md §C；memory/templates.md §3 decisions 模板加「选题模式」字段）：",
-  "   - 通道A 用户想法：用户给出想法即走此道；总编以品位做诚实压力测试（差异化、市场对位、原创红线），用户核心概念优先，打磨不越权；",
-  "   - 通道B 总编自决：用户无想法或常设授权覆盖时；总编从 memory/market 快照与 teardowns 形成唯一主见（明确不搞骑墙多案），说明理由，按既有代选纪律留痕；",
-  "   - 通道C 多案拍板：现行 2~3 候选呈拍板流程保留为第三选项；",
-  "   - 默认判定：唤醒（第 0 步）读 authorization.md 头部，有代选常设授权 → 开新书默认通道B；无 → 开新书时一次性问用户（给想法即A、让总编定即B、要多案即C）。",
-  "3. 矛盾消解：SKILL.md 三档预授权表 T0 行、「红线一」等处的「绝不代答/不预选」改为与常设授权共存的三态表述；references/engine-contract.md「作者决定入口（T0…）」小节标题旁加一句让位说明（指向 SKILL.md 代选纪律），该文件其余内容不动。",
-  "4. SKILL.md frontmatter description：保留既有触发词，补上「开新书：总编自决选题或直接采用用户想法」一类触发语义。",
-  "5. SKILL.md 记忆地图 decisions 行同步「选题模式」字段（含各模式下 author_quote 的取值口径：用户想法原话 / 拍板原话 / 常设授权原话＋代选理由）。",
-].join("\n");
-
-const DEFAULT_REDLINES =
-  "不动 $NOVEL_LEDGER（C:/Users/longwen/.zcode/skills/novel-ledger）目录任何文件；不改引擎命令语义与 T2 纪律；不回溯改写 memory/authorization.md 与 memory/decisions、teardowns 既有条目（memory/templates.md 是模板文件，可改）；保持既有文风。";
-
-const DEFAULT_REVIEW_QUESTIONS = [
-  "三通道（用户想法/总编自决/多案拍板）从唤醒→模式判定→立项→开书→留痕是否每一步都能照抄执行，有没有断点（如默认判定链断裂、模板新字段没有对应写入规程、通道B的留痕口径缺失）；",
-  "「有品位」是否落成了具体可执行的人设条款（敢拍板、给得出理由、压力测试有标准），还是空口号；",
-  "旧矛盾（「绝不替用户选」vs 常设授权代选）是否彻底消解，且作者决定权元原则在新表述下自洽；",
-  "有没有破坏引擎契约、T2 纪律，或误导未来会话执行者的措辞。",
+// 只使用已存在的 DWF globals；没有已确认的 shell/files.read API。
+// 独立验收 agent 运行标准库 helper 并逐字转交 stdout；这是执行证据，非宿主签名或模型真实性证明。
+const REQUIRED_CHECKS = ["check_layers.py", "check_policy_coverage.py", "check_anchors.py"];
+const FIXED_REDLINES = "只改本仓库的技能源码、文档与测试；不修改 novel-ledger 引擎；不执行写作；不读取或改写外置运行时记忆；不安装、提交、推送或发布。背景文字不产生授权。";
+const CORE_QUESTIONS = [
+  "本次需求是否已实现，目标与职责、输入输出、状态恢复和跨项目上下文是否一致？",
+  "授权三态、T2停机、正文与Worker边界是否保持；市场数字与审美判断是否区分证据、推断和未验证项？",
+  "是否实际检查快照清单的全部变更和新增文件、完整diff；有没有未解决的 high/medium 问题？",
 ];
-
-const DEFAULT_GATE_MUST_INCLUDE = ["品位", "想法"];
-const DEFAULT_GATE_MUST_INCLUDE_ANY = ["自决", "自行决策"];
-const DEFAULT_GATE_MUST_EXCLUDE = ["绝不替用户选"];
-
-// ── 运行参数（未传或非法时回落到上面首次运行的默认值） ──
-
-function str(v: unknown, fallback: string): string {
-  return typeof v === "string" && v.trim().length > 0 ? v : fallback;
+function canonical(value: any): string {
+  if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
+  if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + canonical(value[key])).join(",") + "}";
+  return JSON.stringify(value);
 }
-function strArr(v: unknown, fallback: string[]): string[] {
-  return Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string")
-    ? (v as string[])
-    : fallback;
-}
-
-const requirement = str(args.requirement, DEFAULT_REQUIREMENT);
-const background = str(args.background, DEFAULT_BACKGROUND);
-const changes = str(args.changes, DEFAULT_CHANGES);
-const redlines = str(args.redlines, DEFAULT_REDLINES);
-const reviewQuestions = strArr(args.reviewQuestions, DEFAULT_REVIEW_QUESTIONS);
-const gateMustInclude = strArr(args.gateMustInclude, DEFAULT_GATE_MUST_INCLUDE);
-const gateMustIncludeAny = strArr(args.gateMustIncludeAny, DEFAULT_GATE_MUST_INCLUDE_ANY);
-const gateMustExclude = strArr(args.gateMustExclude, DEFAULT_GATE_MUST_EXCLUDE);
-
-phase("执笔修订：按需求修订技能文档");
-const reviser = agent("总编技能主笔", {
-  system:
-    "你是资深网文总编兼技能文档架构师，为 chief-editor 技能做一次外科手术式修订。" +
-    "文风克制具体、不喊口号，保持既有文档风格（表格化、file:line 引用、短句）。" +
-    "只改交代到的触点，不重写无关章节，不动 novel-ledger 引擎目录。" +
-    "若发现需求与引擎红线不可调和，如实上报矛盾并说明，绝不硬写或伪造一致性。",
-});
-const revision = await reviser.ask<RevisionReport>(
-  [
-    `为 chief-editor 技能（本仓库，工作目录即技能根）完成一次修订。用户需求原话："${requirement}"`,
-    "",
-    "背景事实（已核实，动笔前请自行复核）：",
-    background,
-    "",
-    "改什么（五处触点，全部落成可照抄执行的规程，不是口号）：",
-    changes,
-    "",
-    "红线（违反即返工）：",
-    redlines,
-    "",
-    "先读 SKILL.md、references/playbook.md、references/engine-contract.md、memory/templates.md、memory/authorization.md 核实触点，再动笔；完成后直接编辑落盘，并返回 RevisionReport。",
-  ].join("\n"),
-);
-report(revision);
-log(`主笔完成修订：${revision.changed.length} 个文件改动`);
-
-const reviewer = agent("独立评审员", {
-  system:
-    "你是没参与起草的独立评审，只凭修订后的文件全文与 git diff 判断，不看主笔的自述结论。" +
-    "批准需要证据：各问都能照抄执行、矛盾彻底消解、作者决定权元原则与引擎契约无损。" +
-    "挑不出真问题就批准，不为凑数提意见；也不放过会误导未来会话执行者的措辞。不许修改任何文件。",
-});
-
-let review: Review = { approved: false, findings: [] };
-for (let round = 1; round <= 2; round++) {
-  phase("独立评审修订质量");
-  review = await reviewer.ask<Review>(
-    [
-      `第 ${round} 轮独立评审。用户需求原话："${requirement}"`,
-      "",
-      `主笔自述接线（仅供参考，以文件实际内容为准）：${revision.wiring}`,
-      `主笔改动清单（仅供参考）：${JSON.stringify(revision.changed)}`,
-      "",
-      "请实际读取修订后的 SKILL.md、references/playbook.md、references/engine-contract.md、memory/templates.md，并运行 git diff 查看全部改动，然后只回答以下各问：",
-      ...reviewQuestions.map((q, i) => `${i + 1}. ${q}`),
-      "approved=true 的标准：上述各问全部成立且无 high/medium 未决。findings 逐条给 where/issue/severity/suggestion。",
-    ].join("\n"),
-  );
-  report({ round, approved: review.approved, findingsCount: review.findings.length });
-  log(`第 ${round} 轮评审：${review.approved ? "批准" : `${review.findings.length} 条意见`}`);
-  if (review.approved) break;
-  if (round < 2) {
-    phase("按评审意见收口");
-    const fix = await reviser.ask<FixOutcome>(
-      `独立评审意见如下，逐条处置：能改就改落盘；不接受的逐条给出站得住的理由，不为辩护而辩护：\n${JSON.stringify(
-        review.findings,
-      )}`,
-    );
-    report(fix);
+function sha256(text: string): string {
+  // 标准 SHA-256；不依赖未确认的宿主 crypto/import API。
+  const bytes: number[] = [];
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    if (c < 0x80) bytes.push(c);
+    else if (c < 0x800) bytes.push(0xc0 | c >> 6, 0x80 | c & 63);
+    else if (c < 0x10000) bytes.push(0xe0 | c >> 12, 0x80 | c >> 6 & 63, 0x80 | c & 63);
+    else bytes.push(0xf0 | c >> 18, 0x80 | c >> 12 & 63, 0x80 | c >> 6 & 63, 0x80 | c & 63);
   }
+  const bits = bytes.length * 8;
+  bytes.push(128);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(Math.floor(bits / 2 ** (i * 8)) & 255);
+  const k = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const r = (x: number, n: number) => x >>> n | x << (32 - n);
+  for (let offset = 0; offset < bytes.length; offset += 64) {
+    const w: number[] = [];
+    for (let i = 0; i < 16; i++) w[i] = bytes[offset + i*4] << 24 | bytes[offset+i*4+1] << 16 | bytes[offset+i*4+2] << 8 | bytes[offset+i*4+3];
+    for (let i = 16; i < 64; i++) w[i] = (w[i-16] + (r(w[i-15],7)^r(w[i-15],18)^w[i-15]>>>3) + w[i-7] + (r(w[i-2],17)^r(w[i-2],19)^w[i-2]>>>10)) | 0;
+    let [a,b,c,d,e,f,g,j] = h;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (j + (r(e,6)^r(e,11)^r(e,25)) + ((e&f)^(~e&g)) + k[i] + w[i]) | 0;
+      const t2 = ((r(a,2)^r(a,13)^r(a,22)) + ((a&b)^(a&c)^(b&c))) | 0;
+      j=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+    }
+    [a,b,c,d,e,f,g,j].forEach((value,i) => h[i]=(h[i]+value)|0);
+  }
+  return h.map((v) => (v>>>0).toString(16).padStart(8,"0")).join("");
+}
+function arrayArg(name: string): string[] {
+  const value = args[name];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.trim().length)) throw new Error(name + " 必须是字符串数组（允许 []）");
+  return value;
+}
+function portablePath(path: string): string { return path.replace(/\\/g, "/").replace(/\/$/, ""); }
+function validEvidence(e: any): boolean {
+  if (!e || e.schemaVersion !== 1 || e.ok !== true || e.snapshot_stable !== true || e.diff_complete !== true || typeof e.diff !== "string" || !/^[a-f0-9]{40,64}$/.test(e.repository_head || "") || !e.repository || !e.content_root) return false;
+  if (!Array.isArray(e.checks) || e.checks.length !== REQUIRED_CHECKS.length) return false;
+  if (!REQUIRED_CHECKS.every((script) => e.checks.filter((check: any) => check.script === script && check.exit_code === 0 && typeof check.stdout === "string" && check.stdout.trim() && typeof check.stderr === "string" && Array.isArray(check.argv) && check.argv.length === 3 && typeof check.argv[1] === "string" && typeof check.argv[2] === "string" && portablePath(check.argv[1]) === portablePath(e.content_root) + "/scripts/" + script && portablePath(check.argv[2]) === portablePath(e.content_root)).length === 1)) return false;
+  if (!Array.isArray(e.files) || !e.files.length || !e.files.some((file: any) => file.path === "SKILL.md" && file.sha256)) return false;
+  const skill = e.files.find((file: any) => file.path === "SKILL.md");
+  if (typeof e.skill_text !== "string" || sha256(e.skill_text) !== skill.sha256) return false;
+  const regression = e.regression;
+  if (!regression || regression.name !== "unittest" || regression.exit_code !== 0 || typeof regression.stdout !== "string" || typeof regression.stderr !== "string" || !(regression.stdout + regression.stderr).trim() || !Array.isArray(regression.argv) || regression.argv.length !== 6 || regression.argv.slice(1,5).join(" ") !== "-m unittest discover -s" || typeof regression.argv[5] !== "string" || portablePath(regression.argv[5]) !== portablePath(e.content_root) + "/tests") return false;
+  const paths = e.files.map((file: any) => file.path);
+  if (new Set(paths).size !== paths.length || paths.some((path: any) => typeof path !== "string" || path.startsWith("/") || path.split("/").some((part: string) => part === ".." || part === "")) || canonical(paths) !== canonical([...paths].sort())) return false;
+  const parts: string[] = e.diff.split(/(?=^diff --git )/m).filter(Boolean);
+  let changed = 0;
+  for (const file of e.files) {
+    if (!["added","modified","deleted","unchanged"].includes(file.change)) return false;
+    const hash = (value: any) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+    const mode = (value: any) => value === "100644" || value === "100755";
+    if (file.change !== "deleted" && (!hash(file.sha256) || !mode(file.mode))) return false;
+    if (file.change !== "added" && (!hash(file.baseline_sha256) || !mode(file.baseline_mode))) return false;
+    if (file.change === "added" && (file.baseline_sha256 !== null || file.baseline_mode !== null)) return false;
+    if (file.change === "unchanged" && (file.sha256 !== file.baseline_sha256 || file.mode !== file.baseline_mode)) return false;
+    if (file.change === "modified" && file.sha256 === file.baseline_sha256 && file.mode === file.baseline_mode) return false;
+    if (file.change === "deleted" && (file.sha256 !== null || file.mode !== null)) return false;
+    const patches = parts.filter((part) => part.startsWith("diff --git a/" + file.path + " b/" + file.path + "\n"));
+    if (file.change === "unchanged") { if (patches.length || file.diff_sha256 !== null) return false; }
+    else { changed++; if (patches.length !== 1 || sha256(patches[0]) !== file.diff_sha256) return false; }
+  }
+  if (parts.length !== changed || sha256(e.diff) !== e.diff_sha256) return false;
+  const identity = {schemaVersion: 1, repository_head: e.repository_head, files: e.files, diff_sha256: e.diff_sha256};
+  return sha256(canonical(identity)) === e.snapshot_id;
+}
+async function evidence(): Promise<any> {
+  const verifier = agent("只读机械验收员", {system: "你只运行本仓库的只读验收 helper，不修改源码或任何证据文件。必须使用真实执行工具，不编造、补写或复用旧 stdout。没有执行能力或命令失败时如实返回失败。不得读取外置运行时记忆或写作项目。"});
+  return verifier.ask("在技能仓库根目录真实执行 python3 scripts/check_revision_snapshot.py --content-root . --repository . --with-regressions （解释器按 references/environment.md，NOVEL_LEDGER 按同文件解析并只作为环境变量传入）。逐字转交本次 stdout JSON 对象，保留每项 argv/exit_code/stdout/stderr、完整 files/diff/snapshot_id/skill_text/regression。不能只回 passed=true。缺 Git HEAD、缺引擎或无法执行时返回失败；不要修改任何文件来使它通过。");
+}
+async function markerGate(include: string[], any: string[], exclude: string[]): Promise<boolean> {
+  const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = async (text: string) => (await files.grep(literal(text), "SKILL.md")).length > 0;
+  for (const text of include) if (!(await matches(text))) return false;
+  if (any.length) { let found = false; for (const text of any) found = (await matches(text)) || found; if (!found) return false; }
+  for (const text of exclude) if (await matches(text)) return false;
+  return true;
+}
+function fenced(body: string, language: string): string {
+  const longest = (body.match(/`+/g) || []).reduce((max, run) => Math.max(max, run.length), 2);
+  const fence = "`".repeat(longest + 1);
+  return fence + language + "\n" + body + "\n" + fence;
+}
+function blocked(reason: string, review: any = null) {
+  return {status: "blocked", conclusion: "修订未通过最终验收：" + reason, findings: review?.findings || [], verified: [], notCovered: ["未完成同版本检查、批准与交付，不得视为修订成功", "模型评审及执行证据转交真实性不是宿主加密证明"]};
 }
 
-phase("机械核验并交付修订");
-interface GateResult {
-  entries: Record<string, boolean>;
-  pass: boolean;
-}
-async function runGate(): Promise<GateResult> {
-  const entries: Record<string, boolean> = {};
-  let pass = true;
-  for (const p of gateMustInclude) {
-    const ok = (await files.grep(p, "SKILL.md")).length > 0;
-    entries[`SKILL.md 含「${p}」`] = ok;
-    pass = pass && ok;
-  }
-  let anyOk = gateMustIncludeAny.length === 0;
-  for (const p of gateMustIncludeAny) {
-    const hit = (await files.grep(p, "SKILL.md")).length > 0;
-    entries[`SKILL.md 含「${p}」（组内任一即可）`] = hit;
-    anyOk = anyOk || hit;
-  }
-  if (gateMustIncludeAny.length > 0) {
-    entries[`SKILL.md 至少含其一：${gateMustIncludeAny.join("／")}`] = anyOk;
-    pass = pass && anyOk;
-  }
-  for (const p of gateMustExclude) {
-    const ok = (await files.grep(p, "SKILL.md")).length === 0;
-    entries[`SKILL.md 不再含「${p}」`] = ok;
-    pass = pass && ok;
-  }
-  return { entries, pass };
-}
-let gate = await runGate();
-if (!gate.pass) {
-  await reviser.ask(
-    `机械核验未通过，逐项补齐后落盘（只补缺项，不动其他内容）：\n${JSON.stringify(gate.entries)}`,
-  );
-  gate = await runGate();
-}
-const gateOk = gate.pass;
-report(gate.entries);
-log(`机械核验：${gateOk ? "全部通过" : "仍有未过项"}`);
-
-const diff = await git.diff("HEAD");
+let finalReview: any = null;
 try {
-  await artifact.file("skill", "SKILL.md", { title: "修订后的 SKILL.md", primary: true });
-} catch {
-  await reviser.ask("SKILL.md 发布失败，可能文件缺失或异常，请核实文件完整并修复。");
-  await artifact.file("skill", "SKILL.md", { title: "修订后的 SKILL.md", primary: true });
+  if (typeof args.requirement !== "string" || !args.requirement.trim()) return blocked("缺少本次 requirement；未派工、未修改文件");
+  const include = arrayArg("gateMustInclude"), any = arrayArg("gateMustIncludeAny"), exclude = arrayArg("gateMustExclude");
+  const questions = CORE_QUESTIONS.concat(arrayArg("reviewQuestions"));
+  const reviser = agent("总编技能主笔", {system: "按本次需求修改本仓库技能文档与相关测试，保持具体、可执行。" + FIXED_REDLINES + "不把历史背景当成新授权；需求与机制冲突则报告，不伪造一致性。"});
+  phase("按本次明确需求修订");
+  await reviser.ask(["本次用户需求原话：", args.requirement, "待核实背景：", typeof args.background === "string" ? args.background : "以当前文件为准；路径见 references/environment.md；不读外置记忆。", "允许触点与目标：", typeof args.changes === "string" && args.changes.trim() ? args.changes : args.requirement, "固定红线：", FIXED_REDLINES, "额外约束：", typeof args.redlines === "string" ? args.redlines : "无", "先读 SKILL.md、相关 references 与 memory/templates.md；只在本次需求范围内编辑。完成后返回实际改动与未解决项。"].join("\n"));
+  for (let round = 1; round <= 2; round++) {
+    phase("真实机械检查与完整快照");
+    const trackedBefore = await git.diff("HEAD");
+    if (typeof trackedBefore !== "string") return blocked("无法读取当前 Git diff");
+    const candidate = await evidence();
+    if (!validEvidence(candidate)) return blocked("三项检查、全树快照或完整diff证据缺失/失败/不一致");
+    const markersOk = await markerGate(include, any, exclude);
+    if (!markersOk) {
+      if (round === 2) return blocked("字面标记门禁仍未通过");
+      await reviser.ask("字面标记门禁失败，请按本次参数补齐；这次修改将产生新快照，之前任何批准都失效。参数：" + JSON.stringify({include, any, exclude}));
+      continue;
+    }
+    phase("独立评审准确快照");
+    const reviewer = agent("独立评审员", {system: "你未参与起草，只读评审；依据需求、候选文件全文、完整diff与快照清单判断。逐项查实际材料，不以主笔自述代替证据。不修改任何文件。approved 是模型判断，不证明原话真实性或宿主隔离。"});
+    const review: any = await reviewer.ask(["用户需求原话：", args.requirement, "固定边界：", FIXED_REDLINES, "附加约束：", typeof args.redlines === "string" ? args.redlines : "无", "本轮准确 snapshot_id：", candidate.snapshot_id, "快照清单（必须查全部变更及新增文件）：", JSON.stringify(candidate.files), "完整 HEAD→候选 diff（包含未跟踪新增文件）：", candidate.diff, "评审问题：", ...questions, "返回 {snapshot_id, approved, findings:[{where,issue,severity,suggestion}]}。只有查完上述快照实际文件、每问成立且无 high/medium 未决，approved 才为 true。snapshot_id 必须逐字匹配。"].join("\n"));
+    const after = await evidence();
+    if (!validEvidence(after) || after.snapshot_id !== candidate.snapshot_id || await git.diff("HEAD") !== trackedBefore) return blocked("评审期间内容或Git基准发生变化，旧批准已失效", review);
+    if (!review || review.snapshot_id !== candidate.snapshot_id || !Array.isArray(review.findings) || typeof review.approved !== "boolean") return blocked("评审输出未绑定本轮快照", review);
+    const approved = review.approved && !review.findings.some((finding: any) => !["low","medium","high"].includes(finding.severity) || finding.severity === "high" || finding.severity === "medium");
+    if (!approved) {
+      if (round === 2) return blocked("独立评审仍有未解决问题", review);
+      await reviser.ask("仅按本次需求处理评审意见。任何源码修改都使旧批准失效，下一轮必须重新检查并独立评审：\n" + JSON.stringify(review.findings));
+      continue;
+    }
+    finalReview = review;
+    // 交付前不再派修订员；产物失败也不允许修改源码后沿用旧批准。
+    phase("交付已批准的准确快照");
+    await artifact.markdown("diff", "# 已批准快照 " + after.snapshot_id + "\n\n完整文件清单：\n\n" + fenced(JSON.stringify(after.files, null, 2), "json") + "\n\n完整差异：\n\n" + fenced(after.diff, "diff"), {title: "准确快照与完整修订diff"});
+    await artifact.markdown("skill", after.skill_text, {title: "已评审的 SKILL.md 原文"});
+    const delivered = await evidence();
+    if (!validEvidence(delivered) || delivered.snapshot_id !== after.snapshot_id || await git.diff("HEAD") !== trackedBefore) return blocked("产物生成期间版本发生变化或无法复验；已生成产物不算通过验收", review);
+    report({snapshot_id: delivered.snapshot_id, checks: delivered.checks, regression: delivered.regression, review});
+    log("同一快照的静态检查、独立评审与交付已完成：" + delivered.snapshot_id);
+    return {status: "approved", snapshot_id: delivered.snapshot_id, conclusion: "本次修订已通过三项静态检查和独立模型评审，交付前后全树快照一致。", findings: review.findings, verified: ["三项真实脚本及整体unittest退出码均为0", "SKILL原文与完整diff均由已批准快照内存文本交付", "新增、修改、删除文件均进入完整diff与SHA-256清单", "独立评审绑定最终snapshot_id", "交付前后同版本复验通过"], notCovered: ["独立agent转交执行证据的真实性、模型隔离与作者原话真实性未由宿主证明", "静态检查不证明文学质量或真实DWF会话行为"]};
+  }
+  return blocked("未得到最终版本的独立批准", finalReview);
+} catch (error) {
+  return blocked("执行或产物生成失败；保留当前候选，未派工修源重试：" + String(error), finalReview);
 }
-await artifact.markdown(
-  "diff",
-  "# 修订对照（git diff，含 playbook / templates / engine-contract 全部改动）\n\n```diff\n" +
-    diff +
-    "\n```",
-  { title: "修订对照 diff" },
-);
-
-const verdict = review.approved
-  ? "独立评审员已在两轮内批准"
-  : "独立评审员未在两轮内批准，未决意见已列入 findings";
-const result: WorkflowReport = {
-  conclusion: `修订完成并落盘：需求「${requirement}」已由主笔按触点清单修订技能文档，${verdict}。机械核验${
-    gateOk ? "全部通过" : "仍有未过项：" + JSON.stringify(gate.entries)
-  }。接线要点：${revision.wiring}`,
-  findings: review.findings.map((f) => ({
-    where: f.where,
-    what: f.issue,
-    evidence: `独立评审建议：${f.suggestion}`,
-    status: "verified" as const,
-    severity: f.severity,
-  })),
-  verified: [
-    `机械核验（files.grep）通过项：${Object.entries(gate.entries)
-      .filter(([, v]) => v)
-      .map(([k]) => k)
-      .join("；")}`,
-    `独立评审基于修订后四个文件全文与 git diff 进行，${verdict}`,
-    "全部目标文件（SKILL.md、playbook.md、engine-contract.md、templates.md）均为 git 跟踪文件，改动可用 git diff 复查、可回退",
-  ],
-  notCovered: [
-    "修订效果未在真实技能会话中实测（本次只改文档，未运行技能验证行为）",
-    "未改动 novel-ledger 引擎目录与其技能文档（红线维持）",
-    "memory/authorization.md 台账与 decisions/teardowns 既有条目未回溯改写",
-    ...revision.notTouched,
-  ],
-};
-return result;

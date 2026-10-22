@@ -1,1 +1,8 @@
+# 运行时记忆（实例数据）不随技能分发
+# 实际位置：$CHIEF_EDITOR_MEMORY，默认 ~/.chief-editor —— 见 references/environment.md §5
+memory/authorization.md
+memory/market/*.md
+memory/teardowns/*.md
+memory/decisions/*.md
+memory/postmortems/*.md
 .zcode/workflow-drafts/
