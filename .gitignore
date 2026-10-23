@@ -6,3 +6,5 @@ memory/teardowns/*.md
 memory/decisions/*.md
 memory/postmortems/*.md
 .zcode/workflow-drafts/
+__pycache__/
+*.pyc
