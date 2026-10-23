@@ -6,7 +6,7 @@
 
 ## E 正文授权（T0）
 
-1. `outline_ready` 时把**实际卷纲覆盖**交付用户，核对已有正文授权原话；只有目标或模式尚未授权时才取缺失决定：写到第几章（`--through N`）还是完本（`--complete`）；标准还是快速模式。已有明确授权直接保存，不重复询问。
+1. `outline_ready` 时把**实际卷纲覆盖**交付用户，核对已有正文授权原话；只有目标尚未授权时才取缺失决定：写到第几章（`--through N`）还是完本（`--complete`）。已有明确授权直接保存，不重复询问；固定运行入口按 `environment.md` 核实。
 2. 执行（原话逐字入账；目标不得低于已冻结任务与修订范围）：
 
 ```bash
@@ -15,30 +15,32 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" run --complete --so
 python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" run --through 40 --fast --source '作者授权原话（逐字）'
 ```
 
-3. 同卷顺序执笔可建议快速组（`--fast`，五章一组）：实测每章约省 54% 且返修率不劣（引擎 `validation/` 下 2026-10-22 成本实测）。已有明确模式沿原话执行，只有模式缺失时才问；成本数据是执行建议，不替代授权。作者要求逐章新会话用 `--standard`。
+3. 模式按 `policy.md` 处置：已有明确模式沿原话执行；未指定时可在已授权目标内选择标准或快速模式，复盘注明实际模式。首章认可后，同卷顺序执笔可使用五章快速组；作者要求逐章新会话用 `--standard`。历史机械路径的费用比例不适用于新项目默认独立连续性核验，不承诺节省比例或文学质量。见 `$NOVEL_LEDGER/references/runtime.md#快速无人值守：五章一组`。
 4. 保存返回的 owner；此后每条治理命令带 `--owner`。租约默认 300 秒，`watch` 在引擎进程内每 30 秒自动续租；过期则重新 `run` 认领，**沿用已授权目标不扩大**（`red-lines.md#11`）。
 5. 台账追加 run 条目：完整 argv、原话、owner、目标章号、写作模式、`decision_kind`。
 
 ## F 连写主循环（T1，授权目标内）
 
-本循环必须已有正文 `run` 返回的真实 owner；正文授权前的世界与纲要任务走 `flows/opening.md` D3。每轮：核实/预创建真实 Worker → 必要时主干认领 → 转发派工 → 等待 → 按返回动作分支。
+本循环必须已有正文 `run` 返回的真实 owner；正文授权前的世界与纲要任务走 `flows/opening.md` D3。每轮：核实/预创建真实 Worker → 主干准备身份 → 宿主注入凭据并转发派工 → 等待 → 按返回动作分支。主干不读写正文，也不借核验通道代审。
 
-### F1 主干认领
+### F1 主干准备执行身份
 
-先核对任务和宿主执行者：原 Worker 仍活跃就保留它并等候，不重派。新任务先由宿主预创建独立 Worker、取得真实会话 ID，再进行下面的认领，认领完成后才让它执行任务。宿主不支持预创建/暂停执行时，只能用派工视图允许的无认领路径，或报告能力限制，不能填随机 SESSION。`claim=null` 指**派工视图**无需认领，可跳过下面命令；实际调用 `claim` 成功会返回 token。
+先核对任务、宿主执行者与租约：原 Worker 仍活跃或 claim.expired=false 就保留并等候；身份或活动不明则报告，不靠重派探测。`claim=null` 只表示尚未认领，租约过期也不证明旧执行者已停止。新任务由宿主创建真实独立 Worker，使其停在自举边界等待，取得真实会话 ID 后由主干准备；无法创建/等待真实执行者就报告能力缺失，不能填随机 SESSION 或借新子进程冒充空历史模型。`host-check` 只检查协议能力，不能证明宿主已创建模型。
 
 ```bash
-python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" claim --task "$TASK" --session "$SESSION"
+python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" prepare-worker --task "$TASK" --session "$SESSION"
 ```
 
-初始认领必须由主干进程执行（Worker 自己 `claim` 会被 `worker_boundary` 拒绝）。返回 token 转给同一真实 Worker，填入其回执顶层 `execution_claim`（裸字符串）；不得把已绑定的快速组改交另一会话。
+宿主把响应 `worker_env` 仅注入该 Worker，立即交付刷新后的派工卡和生成的 commands。`ready` 只证明身份登记，不证明 Worker 正在执行或模型隔离成立；保留 task ID、真实身份和简短运行状态，不留下空挂租约。凭据不进任务文件和模型草稿，生成的 Python Worker 入口在内存中补齐身份，首条 read 自动验证 ready；不额外调用主干 read/ready。不能注入环境时，只有宿主可按权威文档把本次凭据传给外层 worker 的指定参数。见 `$NOVEL_LEDGER/references/runtime.md#执行身份与技术恢复`。
+
+技术失败按 `details.recovery` 的 actor/action/retry_allowed 处理，与文学返修分账。已确认原因修复后，才对同一任务 `prepare-worker --reset-failures`；保留 result.json，不用 resume、换 Worker 或重派清计数。仅凭据过期时沿允许的原会话重新准备并重交原候选；真正空历史重开使用 `--fresh-context` 并重交全部必读材料，不能把已绑定快速组转给另一会话。`engine_changed` 走 environment 的准确构建恢复，不用 reset-failures 绕过。
 
 ### F2 派工
 
-转发 **`dispatch.md` + 角色 + `task_path` + 一句背景** 给 Worker。
+宿主注入 F1 返回的凭据后，转发 **`dispatch.md` 路径 + 角色 + `task_path` + 一句背景与简短提交状态要求** 给同一 Worker。
 
 - 不手写环境自举、不复述协议、不改写 `commands`/`guides`；
-- 背景那一句只取自本项目的方向指纹与状态摘要（`red-lines.md#9`、`red-lines.md#12`）；
+- 背景那一句只取自本项目已同步的当前方向指纹与状态摘要；已完成重选而投影未更新时先按 `memory/templates.md` 同步，不能把原立项旧方向带给 Worker（`red-lines.md#9`、`red-lines.md#12`）；
 - 快速组内 Worker 用 `worker-next` 接续；该命令 Worker-only，总编绝不代行，派工卡里可以提示 Worker 使用；
 - 使用 F1 已核实或预创建的真实独立 Worker；没有该能力就保留任务并报告宿主限制，不用随机会话名或主干代写冒充派工（`red-lines.md#12`）。
 
@@ -48,7 +50,7 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" cl
 python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" watch
 ```
 
-零主干推理、自动续租。快速模式等整组结束。
+等待在引擎进程内发生并自动续租。快速组也会因需派独立读者、原 Worker 重交或作者裁决提前返回；按实际 action 继续，不把一次返回当整组完成。
 
 ### F4 按返回动作分支
 
@@ -56,11 +58,28 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" wa
 
 1. **`task_ready`** 派下一工（回 F1/F2），再跑一次 `watch`；`wait_for_batch` 继续等整组，不另派。
 2. **`author_decision`** 把问题与选项**原样**上报，拿到答复后先 `answer` 再 `advance`——答复即冻结此前派工（`stale_task`），先派工后答复等于白派一个 Worker。
-3. **`paused` / `idle`** 先按引擎 code 排除 T2 与作者裁决。确认原执行者已停止且没有提交后，才带真实 owner `advance --compact` 重派同一 pending（未提交不计返修额度）；执行状态不明就保留现场上报，不能靠重派试探。连续两次空转保留现场上报。快速组停摆先确认原执行者已停止，再 `pause --cancel` 结束组、`resume`/`advance` 重开（已提交章节与额度保留）。`resume` 撞 `revision_bounds` / `repair_budget` / `author_decision` / `remedy_exhausted` 被拒 → 按 `policy.md` 处置。
+3. **`paused` / `idle`** 先按引擎 code 排除 T2、作者裁决、技术阻断及独立核验等待；后两者分别走 F1/F4b，不能普通重派。确认原执行者已停止且没有提交后，才带真实 owner `advance --compact` 重派同一 pending（未提交不计返修额度）；执行状态不明就保留现场上报，不能靠重派试探。连续两次空转保留现场上报。快速组停摆先确认原执行者已停止，再 `pause --cancel` 结束组、`resume`/`advance` 重开（已提交章节与额度保留）。`resume` 撞 `revision_bounds` / `repair_budget` / `author_decision` / `remedy_exhausted` 被拒 → 按 `policy.md` 处置。
+
+### F4b 独立连续性核验
+
+新 CLI 项目默认 required 连续性核验，旧项目沿用原模式；看 `status.assurance`，不自行关闭核验或降低宿主可信要求恢复。细节只按 `$NOVEL_LEDGER/references/quality.md#主控与执笔交接`。
+
+| action | 主干动作 |
+|---|---|
+| `review_required` | 核实请求尚未绑定读者，保留准确候选和原执笔 Worker；实际创建另一空历史读者，取得宿主身份后 prepare-observer |
+| `review_in_progress` | 原读者已绑定，沿真实 owner watch 等待并续租；不另派、不模型轮询 |
+| `review_author_required` | 保留准确报告和候选，按 policy 核对裁决权限；无对应原话则交作者，不能另派读者覆盖歧义 |
+| `review_complete` | 联系原执笔 Worker，保持上下文并核实有效凭据，用准确原候选重做 submit；核实 outcome 与 committed_chapter |
+
+```bash
+python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" prepare-observer --request "$REQUEST" --session "$OBSERVER_SESSION"
+```
+
+宿主仅向该独立读者注入 `observer_env` 并交付返回的 commands，清除执笔 Worker 的环境。读者按引擎流程先纯读、冻结观察，再比较与报告；主干和原执笔者不运行 review-read/review-observe/review-report，不自填空报告。读者停滞先核实原执行者状态；不能用更换候选或引擎升级跳过仍关联的核验。没有真实读者能力则保留候选报告缺口。
 
 ### F5 回执与反馈
 
-Worker 报"完成"必须核对返回里的 `committed_chapter`——`accepted=true` 只表示回执已受理，可能仍产生返修候选。
+Worker 报"完成"必须核对 `outcome`、总 `findings`、`worker_boundary` 与 `committed_chapter`：`continuity_review_required` 是候选保存待核验，`repair_required` 是待返修，`chapter_committed` 才是正式入章。`accepted=true` 或 `transaction.persisted` 不能代替章节确认；`await_review` 时保留原执笔上下文，不能把它当任务已结束。
 
 用户对当前候选正文的反馈：
 

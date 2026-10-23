@@ -6,7 +6,7 @@
 
 ## 1 作者决定权是第一哲学
 
-**规则**：引擎不代作者选择，总编也不。作者决定方向，系统只给选项、存来源、核验一致性。三态处置见 `policy.md` §1：亲选转呈、委托代选（记授权原话与理由）、未授权保守上报。`choose` 绑定准确展示版本；预选、超时、沉默都不代表选择；`answer` 只接受已展示选项，第三条路走 `recontract` 并先说明全书重写代价。
+**规则**：用户明确要求优先；总编在真实委托范围内独立决定开书内容并修正自己的选择。三态处置见 `policy.md` §1：亲选转呈、委托自决并继续（记授权原话与理由）、未授权只问真实缺口。用户锁定项与总编自选项分开，修改前门按真实 back 重做依赖，不能借当前门越界。`choose` 绑定准确展示版本；预选、超时、沉默都不代表选择；`answer` 只接受已展示选项，第三条路走 `recontract` 并先说明全书重写代价。
 
 **为什么**：这是整套机制存在的理由。代选是作者主动让出的权力，不是总编自己长出来的权力；两者混在一起，台账就无法证明任何一个决定属于作者。
 
@@ -22,7 +22,7 @@
 
 ## 3 机械校验不可绕过
 
-**规则**：提交时执行漂移核算、字数、lint、字面检查；引擎自己核算，零派工。完整性失败（`projection` / `chain` / `state_integrity` / `source_integrity` / `schema`）保留现场停止推进。`completed` 与旧 `audit.ok` 都不豁免复验。
+**规则**：提交时执行漂移核算、字数、lint、字面检查；引擎自己核算，零派工。完整性失败（`projection` / `chain` / `state_integrity` / `source_integrity` / `governance_integrity` / `schema`）保留现场停止推进。`completed` 与旧 `audit.ok` 都不豁免复验。
 
 **为什么**：一旦允许"这次先过"，后面每一章都失去可比基线。
 
@@ -62,15 +62,15 @@
 
 ## 8 总编/主干角色边界
 
-**规则**：主干管目标、派工和治理，不读写正文、不代签自比。`read` / `recall` / `patch` / `worker-next` 是 Worker-only；唯一例外是 `opening_options` 门任务由主干自执（`read` / `recall` / `check` / `submit`）。Worker 不能执行主控或作者命令、不能 `init`，回执不能改投其他任务或会话。
+**规则**：主干负责编辑决策、目标、派工与治理，不读写正文、不代签自比。`read` / `recall` / `patch` / `worker-next` 是 Worker-only；唯一例外是 `opening_options` 门任务由主干自执（`read` / `recall` / `check` / `submit`）。独立读者用引擎的 observer 身份与命令，主干和执笔者不代审。Worker 不能执行主控或作者命令、不能 `init`，回执不能改投其他任务或会话。
 
-**为什么**：主干一旦读到正文，就会开始"顺手改一句"，角色分离随之失效，返修额度与审计链也失去意义。
+**为什么**：选题、执笔、自评与独立阅读承担不同责任。保持引擎规定的访问边界，才能核对谁作出了哪项判断，以及它依据的准确版本。
 
 **出处**：`$NOVEL_LEDGER/scripts/novel.py#WORKER_ONLY`、`$NOVEL_LEDGER/scripts/novel_ledger/contracts.py#CONTROLLER_STAGES`、`$NOVEL_LEDGER/references/runtime.md#任务交接`
 
 ## 9 派工纪律
 
-**规则**：委派 = 转发任务目录的 `dispatch.md`（引擎渲染的 Worker 自举卡）＋角色＋`task_path`＋一句背景。不手写环境自举、不复述协议、不改写 `commands`/`guides`。`commands` 是 argv 数组，按数组执行，不拼 shell 字符串。命令路径失效先做文件系统核实，不凭路径字面判断。
+**规则**：先用宿主真实身份执行 `prepare-worker`，仅向对应 Worker 交付响应的 `worker_env`，再转发任务目录的 `dispatch.md`＋角色＋`task_path`＋一句背景与简短提交状态要求。`claim=null` 不是免准备许可，ready 也不是实际运行证明。独立读者按 `prepare-observer` 返回的环境和命令交接。不手写环境自举、不复述协议、不改写 `commands`/`guides`。`commands` 是 argv 数组，按数组执行，不拼 shell 字符串。命令路径失效先做文件系统核实，不凭路径字面判断。
 
 **为什么**：手写派工卡会教 Worker 做错事（实测曾被 `worker_boundary` 拒绝），而且派工内容一旦分叉，出问题就无法判断是引擎错还是提示词错。
 

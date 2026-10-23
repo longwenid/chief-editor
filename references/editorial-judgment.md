@@ -7,9 +7,18 @@
 - 四类记录：`market_snapshot`、`taste_comparison`、`selection_decision`、`postmortem`。每份 Markdown 只有一个 JSON 证据块；JSON 是该模块唯一真源，正文只展示摘要或引用 `record_id`，不另存相同字段。
 - 市场卡带来源的真实上游 `origin_id`、观察时间和曝光干扰。队列按平台、商业模式、阶段、受众、指标单位/分母/窗口分开。头部、上升、普通、掉队样本各有观察或明确缺失原因；不把榜首截面写成趋势，不把同源转载写成独立双源。
 - 审美卡先隐藏身份与榜位，用同类且处于声明长度范围的样本，给出可比理由；换序复评。每条判断写文本位置、叙事机制、阅读体验、代价和适用边界，另写反例。允许非模板佳作、不可比与不足以判断，不设模板合规奖励和伪总分。
+- 创作增量按作品类型和本次阅读目标判断：解释它相对同类作品提供了什么不同体验、怎样成立并支撑建议体量。新增根规则只是可能来源，人物、关系、声音或生活经验也可以成立；不把这些可能来源变成逐项打勾的模板。
 - 决策卡先登记带时间窗、指标、反证阈值和最低观察量的预测。复盘逐项区分判断错误、执行偏离、曝光变化和观察不足；没有读者数据就写“市场适配未验证”。
 - 长篇兑现仅引用引擎已有事实源与 Worker 报告。主干不读小说正文、不新增故事事实账本；本模块不抓小说、不运行引擎。公共对标细读也保留位置指针，不把整段正文复制进记忆。
 - 验收：正反回归覆盖无证据趋势、同源转载、不可比队列、未经表达的偏好、热度与文本相反、偏好冲突、未上架复盘和非模板判断。静态结构/可比性通过不等于文学质量或市场效果成立。
+
+## 创作增量与开书主见
+
+先说明这本书希望读者怎样读、记住什么，再选择适合其类型与阅读目标的比较依据。规则驱动的故事可以检验新规则是否改变选择与博弈；关系驱动的故事可以检验人物欲望和关系变化是否持续带来不可替代的体验；生活或声音驱动的故事可以检验具体经验、观察和叙述方式如何让熟悉处境变得可感。这些是判断示例，允许其他成立路径，也不要求一部作品同时满足它们。
+
+创作增量须可辨识、能持续兑现，并守原创边界：说清它相对已知同类作品的差异、怎样形成阅读体验、要承受什么代价，以及为什么足以支撑建议体量。已有类型规则可以沿用；换名、叠加标签、机械加一条设定都不自动构成增量。没有可用文本时提出有依据的创作假设和反证条件，不把未写出的效果说成已经证明，也不因缺少新根规则淘汰人物或表达成立的选题。
+
+总编负责给出可以执行的编辑主见。用户明确委托本次开书后，在 `policy.md` 界定的范围内完成方案、作出选择并修正自定项；用户给定核心时，在该核心与明确禁区内自主填缺；用户没有给定方向时，形成唯一主推并保留最接近的舍弃方案及取舍。每次判断应解释为什么选择、牺牲了什么和什么证据会使自己改变主意。用户明确约束、保留决定权或委托范围之外的变更按治理规则处理；主见不依靠综合分数，也不把尚未表达的作者偏好当依据。
 
 ## 文件与调用
 
@@ -37,11 +46,11 @@ python3 -B scripts/check_editorial_evidence.py <记录.json或.md> [其他记录
 
 ### 选题控制元数据
 
-`selection_decision.control` 是项目恢复的唯一字段源：`project_path/status/selection_mode/direction_fingerprint/authorization_index/decision_kind/author_quote/author_source_id`；delegated 另填 `delegated_reason`，理由与用户原话分开。`candidates` 用 `candidate_id/proposal/increment`，chosen 是其中一个 candidate_id，不暗造未记录选项。作者偏好在 basis 中单独保存，不能从委托原话推定。
+`selection_decision.control` 是项目恢复的唯一字段源：`project_path/status/selection_mode/direction_fingerprint/authorization_index/decision_kind/author_quote/author_source_id`；delegated 另填 `delegated_reason`，理由与用户原话分开。`direction_fingerprint` 为当前方向投影，真实门重选完成后按 `memory/templates.md` 的“当前方向同步”更新，来源保留在原台账；其余立项内容不随当前方向重写。`candidates` 用 `candidate_id/proposal/increment`，chosen 是原立项的其中一个 candidate_id，不暗造未记录选项。作者偏好在 basis 中单独保存，不能从委托原话推定。
 
 仅 decision_status=chosen 且有绝对项目路径时，control.status 才能 active/delivered/shelved。proposed/pending_author 必须 draft，路径未定用 null+project_path_reason，不纳入 active 项目恢复。授权定位和引语仍须与对话/原台账核对；本脚本只能校验来源字段，原话真实性保持未验证，不把它当成授权执行器。
 
-现有记忆有独立 JSON 块就只改其唯一 status（限主模板允许的状态回写），不要在 Markdown 再建一套状态。旧 Markdown 记录继续按原恢复口径读取，不自动迁写或伪填缺失证据。
+现有记忆有独立 JSON 块就只回写主模板允许的 control.status 与当前方向投影，不在 Markdown 再建一套状态或指纹。旧 Markdown 记录按同样纪律更新对应原字段，不自动迁写或伪填缺失证据。当前方向与原立项预测不再相同时，复盘如实记录方向调整带来的适用范围变化，不能改原预测以伪装命中。
 
 ## 最小有效示例
 

@@ -55,7 +55,7 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" --owner "$OWNER" ht
 | `completed_and_delivered`（完本复验与正式交付均成功） | `delivered` |
 | `author_shelved`（作者明确搁置） | `shelved` |
 
-新格式仅回写对应 decisions 唯一 JSON 证据块的 `control.status`；旧格式仅回写原 status 字段，不生成双份状态。局部交付范围、失败 code 和新作者原话另行追加留痕，不修改历史原话。这是唯一允许回写的既有记忆（`memory/templates.md` 通用纪律）；save_editorial_record 只负责新增记录，不代行状态回写。
+交付阶段只回写对应 decisions 唯一 JSON 证据块的 `control.status`；旧格式只改原 status 字段，不生成双份状态。局部交付范围、失败 code 和新作者原话另行追加留痕，不修改历史原话。开书重选后的方向投影另按 `memory/templates.md` 通用纪律同步，不借交付改写原立项判断或预测；save_editorial_record 只负责新增记录，不代行控制元数据回写。
 
 ## 附录：作者发起的方向性操作（全 T0，用户明示才执行）
 

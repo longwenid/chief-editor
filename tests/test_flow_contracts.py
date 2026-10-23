@@ -79,6 +79,14 @@ def literal(node: ast.AST, names: dict):
         return names[node.id]
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         return literal(node.left, names) + literal(node.right, names)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        left, right = literal(node.left, names), literal(node.right, names)
+        if not isinstance(left, (set, frozenset)) or not isinstance(right, (set, frozenset)):
+            raise ValueError("Only set union is supported in CLI declarations")
+        return left | right
+    if isinstance(node, (ast.Set, ast.Tuple, ast.List)):
+        values = [literal(value, names) for value in node.elts]
+        return set(values) if isinstance(node, ast.Set) else tuple(values) if isinstance(node, ast.Tuple) else values
     if isinstance(node, ast.Compare) and len(node.ops) == 1:
         left, right = literal(node.left, names), literal(node.comparators[0], names)
         op = node.ops[0]
@@ -104,14 +112,31 @@ class Schema:
 def cli_schemas(source: str) -> dict[str, Schema]:
     """Extract add_argument metadata; no engine import, eval, exec, or dispatch."""
     module = ast.parse(source)
-    constants = {}
+    declarations, constants, resolving = {}, {}, set()
     for node in module.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
-            if node.targets[0].id in {"PUBLIC", "SEALED"}:
-                constants[node.targets[0].id] = ast.literal_eval(node.value)
+            declarations[node.targets[0].id] = node.value
     parser = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "parser")
     loop = next(node for node in parser.body if isinstance(node, ast.For) and isinstance(node.target, ast.Name) and node.target.id == "command")
     schemas = {}
+
+    def constant(name):
+        if name in constants:
+            return constants[name]
+        if name in resolving:
+            raise ValueError(f"Cyclic CLI constant: {name}")
+        resolving.add(name)
+        expression = declarations[name]
+        dependencies = {node.id for node in ast.walk(expression) if isinstance(node, ast.Name)}
+        value = literal(expression, {dependency: constant(dependency) for dependency in dependencies})
+        constants[name] = value
+        resolving.remove(name)
+        return value
+
+    # Resolve referenced declarations only. Never import or execute the engine,
+    # including unrelated module initializers or dynamic command factories.
+    for name in {"PUBLIC", "SEALED"} | {node.id for node in ast.walk(loop) if isinstance(node, ast.Name) and node.id in declarations}:
+        constant(name)
 
     def visit(statements, names, schema, groups):
         for node in statements:
@@ -146,7 +171,7 @@ def cli_schemas(source: str) -> dict[str, Schema]:
 
     for command in sorted(constants["PUBLIC"] | constants["SEALED"]):
         schema = Schema(flags={"--project": True, "--owner": True})
-        visit(loop.body, {"command": command}, schema, {})
+        visit(loop.body, {**constants, "command": command}, schema, {})
         schemas[command] = schema
     return schemas
 
@@ -221,6 +246,31 @@ class FlowContracts(unittest.TestCase):
             self.assertIn("--owner", words)
             self.assertEqual(words[words.index("--owner") + 1], "$OWNER")
 
+    def test_design_and_writing_prepare_real_workers(self):
+        for name, needs_owner in (("opening", False), ("writing", True)):
+            commands = bash_commands((FLOWS / f"{name}.md").read_text())
+            preparations = [words for words in commands if "prepare-worker" in words]
+            with self.subTest(flow=name):
+                self.assertTrue(preparations, "claim=null does not waive execution identity preparation")
+                self.assertFalse(any("claim" in words for words in commands), "new dispatch uses prepare-worker")
+                for words in preparations:
+                    self.assertEqual("--owner" in words, needs_owner)
+                    self.assertIn("--task", words)
+                    self.assertIn("--session", words)
+
+    def test_review_lifecycle_has_distinct_recovery_routes(self):
+        actions = (ROOT / "references" / "engine-cli.md").read_text().split("## 4 watch 返回动作处置")[1].split("## 5")[0]
+        authority = {key: cells[1] for cells in table_rows(actions) if len(cells) == 2
+                     for key in code_tags(cells[0]) if key.startswith("review_")}
+        writing = branches((FLOWS / "writing.md").read_text().split("### F4b")[1].split("### F5")[0], 2)
+        for action in ("review_required", "review_in_progress", "review_author_required", "review_complete"):
+            self.assertIn(action, authority)
+            self.assertIn(action, writing)
+        for name in ("opening", "writing", "wakeup"):
+            for words in bash_commands((FLOWS / f"{name}.md").read_text()):
+                self.assertFalse({"review-read", "review-observe", "review-report", "worker-ready"} & set(words),
+                                 "controller examples must not impersonate the observer/Worker")
+
     def test_partial_delivery_remains_discoverable(self):
         delivery = branches((FLOWS / "delivery.md").read_text(), 2)
         for result in ("target_reached", "preview_export", "delivery_failed"):
@@ -259,6 +309,62 @@ class RealCliExamples(unittest.TestCase):
         self.assertTrue(command_errors(prefix, self.schemas))
         self.assertTrue(command_errors(prefix + ["--through", "40", "--complete"], self.schemas))
         self.assertEqual(command_errors(prefix + ["--through", "40", "--source", "原授权"], self.schemas), [])
+
+    def test_real_identity_and_review_commands_keep_required_bindings(self):
+        cases = {
+            "prepare-worker": {"--task", "--session"},
+            "prepare-observer": {"--request", "--session"},
+            "review-resolve": {"--request", "--disposition", "--source"},
+            "recover-engine": {"--task", "--input-hash", "--source"},
+            "review-read": {"--request"},
+            "review-report": {"--request", "--file"},
+        }
+        for command, required in cases.items():
+            with self.subTest(command=command):
+                self.assertTrue(required <= self.schemas[command].required)
+                prefix = ["python3", "$NOVEL_LEDGER/scripts/novel.py", command]
+                errors = command_errors(prefix, self.schemas)
+                for flag in required:
+                    self.assertIn(f"missing {flag}", errors)
+
+
+class CliAstCompatibility(unittest.TestCase):
+    SOURCE = """
+PUBLIC = {'prepare-observer', 'review-resolve'}
+OBSERVER = {'review-read', 'review-observe', 'review-report'}
+SEALED = {'read'} | OBSERVER
+raise RuntimeError('This module must never execute')
+def parser():
+    for command in sorted(PUBLIC | SEALED):
+        sub = subs.add_parser(command)
+        if command in OBSERVER | {'prepare-observer', 'review-resolve'}:
+            sub.add_argument('--request', required=True)
+        if command in ('review-observe', 'review-report'):
+            sub.add_argument('--file', required=True)
+        if command == 'prepare-observer':
+            sub.add_argument('--session', required=True)
+"""
+
+    def test_named_set_union_preserves_observer_command_flags_without_execution(self):
+        schemas = cli_schemas(self.SOURCE)
+        self.assertEqual(set(schemas), {"read", "prepare-observer", "review-resolve", "review-read", "review-observe", "review-report"})
+        self.assertEqual(schemas["read"].required, set())
+        self.assertEqual(schemas["prepare-observer"].required, {"--request", "--session"})
+        self.assertEqual(schemas["review-read"].required, {"--request"})
+        self.assertEqual(schemas["review-report"].required, {"--request", "--file"})
+
+    def test_constant_dependency_order_does_not_change_union(self):
+        reordered = self.SOURCE.replace("OBSERVER = {'review-read', 'review-observe', 'review-report'}\n", "")
+        reordered += "\nOBSERVER = {'review-read', 'review-observe', 'review-report'}\n"
+        self.assertEqual(cli_schemas(reordered), cli_schemas(self.SOURCE))
+
+    def test_dynamic_command_sets_fail_closed(self):
+        with self.assertRaises((KeyError, ValueError)):
+            cli_schemas(self.SOURCE.replace("{'read'} | OBSERVER", "load_commands()"))
+
+    def test_cyclic_command_sets_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, "Cyclic CLI constant"):
+            cli_schemas(self.SOURCE.replace("{'review-read', 'review-observe', 'review-report'}", "SEALED"))
 
 
 if __name__ == "__main__":

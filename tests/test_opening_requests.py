@@ -27,6 +27,16 @@ def request():
     }
 
 
+def back_request(*, origin="editor_selected", kind="delegated_backtrack"):
+    data = request()
+    data.update(gate="world", changes_confirmed=["style"],
+                confirmed_change_context=[{"field": "style", "gate": "voice", "origin": origin,
+                                           "decision_ref": "authorization.md#voice-choice"}],
+                change_authorization={"kind": kind, "quote": "本书由总编决定，包括回退修改自己此前代选的讲述方式。",
+                                      "source_ref": "conversation:message-7", "fields": ["style"]})
+    return data
+
+
 class OpeningRequestTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -84,11 +94,136 @@ class OpeningRequestTests(unittest.TestCase):
             data.update(update)
             self.assertNoCommand(self.plan(data), "needs_author")
 
-    def test_each_changed_confirmed_item_requires_author(self):
+    def test_legacy_changes_without_provenance_remain_conservative(self):
         for field in ("mainline", "style", "target", "scope"):
             data = request()
             data["changes_confirmed"] = [field]
             self.assertNoCommand(self.plan(data), "needs_author")
+
+    def test_delegated_reconsideration_backs_to_original_gate_not_regroup(self):
+        data = back_request()
+        data["owner"] = "real-owner-from-current-project"
+        result = self.plan(data)
+        self.assertEqual((result["status"], result["action"], result["back_gate"]), ("planned", "back", "voice"))
+        self.assertEqual(result["argv"][4:11], ["--owner", data["owner"], "back", "--gate", "voice", "--reason", result["reason"]])
+        self.assertNotIn("--board", result["argv"])
+        self.assertNotIn("regroup", result["argv"])
+        self.assertEqual(result["command_decision_kind"], "delegated")
+        self.assertIn(data["change_authorization"]["quote"], result["reason"])
+        self.assertIn(data["confirmed_change_context"][0]["decision_ref"], result["reason"])
+        self.assertFalse(result["authorization_verified"])
+        self.assertFalse(result["history_verified"])
+
+    def test_delegated_reconsideration_cannot_override_author_lock(self):
+        self.assertNoCommand(self.plan(back_request(origin="author_locked")), "needs_author")
+
+    def test_current_author_can_change_intake_voice_while_genre_is_unselected(self):
+        data = back_request(origin="author_locked", kind="current_author_decision")
+        data["gate"] = "genre"
+        data["confirmed_change_context"][0].update(selection_method="intake", decision_ref="engine:selections/author:voice")
+        data["change_authorization"]["quote"] = "把我预填的第一人称改成第三人称限知，其余继续。"
+        result = self.plan(data)
+        self.assertEqual((result["status"], result["action"], result["back_gate"]), ("planned", "back", "voice"))
+        self.assertEqual(result["argv"][4:8], ["back", "--gate", "voice", "--reason"])
+        self.assertIn("选择入口=intake", result["reason"])
+        self.assertTrue(any("最早未选门" in step and "genre" in step for step in result["next_steps"]))
+        data["change_authorization"]["kind"] = "delegated_backtrack"
+        self.assertNoCommand(self.plan(data), "needs_author")
+
+    def test_unselected_future_or_current_gate_cannot_masquerade_as_intake_choice(self):
+        data = back_request(kind="current_author_decision")
+        data["gate"] = "genre"
+        self.assertNoCommand(self.plan(data), "invalid")
+        data["confirmed_change_context"][0]["selection_method"] = "intake"
+        data["confirmed_change_context"][0]["decision_ref"] = ""
+        self.assertNoCommand(self.plan(data), "invalid")
+        data["confirmed_change_context"][0].update(gate="genre", decision_ref="engine:selections/author:genre")
+        self.assertNoCommand(self.plan(data), "invalid")
+        data["confirmed_change_context"][0].update(gate="voice", selection_method="automatic")
+        self.assertNoCommand(self.plan(data), "invalid")
+
+    def test_current_author_change_supplies_missing_change_authority_without_reasking(self):
+        data = back_request(origin="author_locked", kind="current_author_decision")
+        data["authority_covers_refinement"] = False
+        data["source_quote"] = ""
+        data["change_authorization"]["quote"] = "把我此前确定的第一人称改成第三人称限知，按这个决定重做视角门。"
+        result = self.plan(data)
+        self.assertEqual((result["status"], result["action"]), ("planned", "back"))
+        self.assertEqual(result["command_decision_kind"], "author")
+        self.assertIn(data["change_authorization"]["source_ref"], result["reason"])
+        self.assertTrue(result["reason"].startswith("【决定来源】\n类型：author\n原话（逐字保留）：\n" + data["change_authorization"]["quote"]))
+
+    def test_multiple_changes_back_to_earliest_gate_preserving_history(self):
+        data = back_request()
+        data["prior_custom_regroups"] = 2
+        data["changes_confirmed"].append("mainline")
+        data["confirmed_change_context"].append({"field": "mainline", "gate": "premise", "origin": "editor_selected",
+                                                "decision_ref": "authorization.md#premise-choice"})
+        data["change_authorization"]["fields"].append("mainline")
+        result = self.plan(data)
+        self.assertEqual(result["back_gate"], "premise")
+        self.assertEqual(result["prior_custom_regroups"], 2)
+        self.assertNotIn("custom_regroup_number", result)
+        self.assertNotIn("--option", result["argv"])
+
+    def test_missing_or_mismatched_backtrack_evidence_never_plans(self):
+        for key in ("confirmed_change_context", "change_authorization"):
+            data = back_request()
+            del data[key]
+            self.assertNoCommand(self.plan(data), "needs_author")
+        for update in ({"fields": []}, {"fields": ["style", "style"]}, {"fields": ["mainline"]},
+                       {"quote": " "}, {"source_ref": ""}, {"kind": "automatic"}):
+            data = back_request()
+            data["change_authorization"].update(update)
+            self.assertNoCommand(self.plan(data), "invalid")
+        for update in ({"gate": "world"}, {"gate": "title"}, {"gate": "unknown"},
+                       {"origin": "unknown"}, {"decision_ref": ""}, {"field": "mainline"}):
+            data = back_request()
+            data["confirmed_change_context"][0].update(update)
+            self.assertNoCommand(self.plan(data), "invalid")
+        data = back_request()
+        data["confirmed_change_context"].append(copy.deepcopy(data["confirmed_change_context"][0]))
+        self.assertNoCommand(self.plan(data), "invalid")
+
+    def test_changed_scale_gate_routes_back_but_scale_itself_stays_system_owned(self):
+        data = back_request(kind="current_author_decision")
+        data.update(changes_confirmed=["target"], confirmed_change_context=[
+            {"field": "target", "gate": "scale", "origin": "author_locked", "decision_ref": "authorization.md#scale-choice"}])
+        data["change_authorization"].update(fields=["target"], quote="改成短篇，请重新选真实体量档。")
+        result = self.plan(data)
+        self.assertEqual((result["action"], result["back_gate"]), ("back", "scale"))
+        data = request()
+        data.update(gate="scale", regroup_extension={"limit": 4, "quote": "再给两轮。", "source_ref": "conversation:message-8"})
+        self.assertNoCommand(self.plan(data), "unsupported")
+
+    def test_explicit_finite_extension_continues_count_and_stops_at_new_limit(self):
+        data = request()
+        data.update(prior_custom_regroups=2, regroup_extension={
+            "limit": 4, "quote": "本门再给总编两轮换组额度，累计最多四轮。", "source_ref": "conversation:message-8"})
+        result = self.plan(data)
+        self.assertEqual((result["status"], result["action"]), ("planned", "regroup"))
+        self.assertEqual((result["custom_regroup_number"], result["custom_regroup_limit"]), (3, 4))
+        self.assertIn(data["regroup_extension"]["quote"], result["reason"])
+        self.assertIn(data["regroup_extension"]["source_ref"], result["reason"])
+        data["prior_custom_regroups"] = 3
+        data["board_hash"] = "b" * 64
+        self.assertEqual(self.plan(data)["custom_regroup_number"], 4)
+        data["prior_custom_regroups"] = 4
+        self.assertNoCommand(self.plan(data), "stopped")
+
+    def test_extension_without_exact_finite_limit_and_source_is_invalid(self):
+        for extension in ({"limit": True, "quote": "加两轮", "source_ref": "message-8"},
+                          {"limit": 2, "quote": "加两轮", "source_ref": "message-8"},
+                          {"limit": 4.0, "quote": "加两轮", "source_ref": "message-8"},
+                          {"limit": 4, "quote": "", "source_ref": "message-8"},
+                          {"limit": 4, "quote": "加两轮", "source_ref": ""},
+                          {"limit": 4, "quote": "加两轮"}):
+            data = request()
+            data["regroup_extension"] = extension
+            self.assertNoCommand(self.plan(data), "invalid")
+        data = back_request()
+        data["regroup_extension"] = {"limit": 4, "quote": "加两轮", "source_ref": "message-8"}
+        self.assertNoCommand(self.plan(data), "invalid")
 
     def test_repeated_unsatisfied_stops_third_attempt_regardless_of_new_board(self):
         data = request()

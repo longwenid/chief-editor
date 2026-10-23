@@ -12,7 +12,13 @@
 2. 本技能目录的同级兄弟目录 `../novel-ledger`（开发态布局，改引擎时常见）；
 3. 安装态默认 `~/.zcode/skills/novel-ledger`（macOS/Linux）；
 4. Windows 安装态 `%USERPROFILE%\.zcode\skills\novel-ledger`。
-全都找不到时：向用户要一个路径后写进 `NOVEL_LEDGER`，**不要复制引擎、不要建临时补丁引擎**（`references/red-lines.md#12`）。判失效前先做文件系统核实——路径字面看着不对不等于真失效，引擎可能只是被移动过，那种情况由主干重新 `advance` 刷新。
+全都找不到时：向用户要一个路径后写进 `NOVEL_LEDGER`，**不要自造或临时修补引擎**（`references/red-lines.md#12`）。判失效前先做文件系统核实——路径字面看着不对不等于真失效；已有待办先核实固定构建与原执行者，再按唤醒流程刷新。
+
+### 固定运行入口
+
+上述解析只定位可信入口；写作运行与引擎开发目录分离。开始连续写作前，按 `$NOVEL_LEDGER/references/runtime.md#固定运行版本与受控切换` 使用 `pin-engine --output "$RUNTIME"` 创建或复用清单有效的固定副本。`$RUNTIME` 是开发树以外的独立路径；保留源入口位置，将后续 `$NOVEL_LEDGER` 设为实际返回的 `runtime_root`，所有主控与 Worker 命令沿同一固定入口。不得把副本链接回开发树或手工改副本文件。
+
+已有项目须核对其冻结构建：用准确源入口带 `--project "$PROJECT"` 执行 `pin-engine`；必要时 `--ref` 使用发布记录核实的引用，不按版本号猜指纹。该入口只读项目冻结指纹，不取消待办、不改开发检出。若需要切换构建，先保留现场并取本次升级授权，再从新固定入口对准确 task/input_hash 执行 `recover-engine`；原执行者停止由宿主核实。恢复同一构建与升级是两条不同路径，不能用技术重试消除 `engine_changed`。
 
 ## 2 解释器
 
@@ -41,7 +47,7 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" <子命令> ...
 
 - 路径一律加引号——项目目录常含中文与空格；
 - `commands` 是 argv 数组，按数组逐个执行，不拼 shell 字符串（red-lines #9）；
-- `--project` 每个命令都要带，多项目并行时绝不省略。
+- 项目命令必须带 `--project`，多项目并行时绝不省略；仅新建固定副本的 `pin-engine` 不带项目，已有待办的构建恢复必须带项目。
 
 ## 5 记忆根（$CHIEF_EDITOR_MEMORY）
 
