@@ -8,7 +8,7 @@ import math
 import re
 import sys
 from datetime import datetime
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 TYPES = {"market_snapshot", "taste_comparison", "selection_decision", "postmortem"}
 KINDS = {"official_market", "repost", "public_text", "worker_report", "engine_state", "author_message", "reader_data"}
@@ -289,7 +289,7 @@ def selection(record, sources, index, valid):
         text(control.get("project_path_reason"), "control.project_path_reason")
     else:
         text(project_path, "control.project_path")
-        need(Path(project_path).is_absolute() or PureWindowsPath(project_path).is_absolute(), "control.project_path 必须为绝对路径，不实际访问或创建")
+        need(PurePosixPath(project_path).is_absolute() or PureWindowsPath(project_path).is_absolute(), "control.project_path 必须为绝对路径，不实际访问或创建")
     control_status = choice(control.get("status"), {"draft", "active", "delivered", "shelved"}, "control.status")
     need((status == "chosen") == (control_status != "draft"), "仅 chosen 的绝对路径项目可 active/delivered/shelved；proposed/pending_author 必须 draft")
     choice(control.get("selection_mode"), {"A", "B", "C"}, "control.selection_mode")
