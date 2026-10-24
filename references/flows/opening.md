@@ -32,7 +32,7 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" opening --file 约�
 
 ## D1 逐门自执四步（每门重复）
 
-构思候选前，取最新有效市场快照的**当期摘要**（当期在跑的机制/节奏/审美、已饱和方向）作为构思上下文，并与候选一起接受俗套自审；没有快照按"无当期证据"处理并注明。
+构思候选前，取最新有效市场快照的**当期摘要**（当期在跑的机制/节奏/审美、已饱和方向）作为构思上下文，并与候选一起接受俗套自审；没有快照按"无当期证据"处理并注明。落笔前先读当前门任务卡 brief 的 value 规则：枚举与结构字段（stance、dark_side、mechanism、resource、architecture、ladder.scale、payoff.plan/anchor 等）以 brief 与 check findings 为准，不凭记忆猜格式。
 
 ```bash
 # ① 取任务与 task_path
