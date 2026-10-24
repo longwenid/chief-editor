@@ -90,7 +90,7 @@
 
 **为什么**：授权是逐次给出的范围，不是一次性授予的权限。扩大一档，下一次就要再扩一档。
 
-**出处**：`$NOVEL_LEDGER/references/runtime.md#目标与主控认领`、`$NOVEL_LEDGER/references/runtime.md#快速无人值守：五章一组`
+**出处**：`$NOVEL_LEDGER/references/runtime.md#目标与主控认领`、`$NOVEL_LEDGER/references/runtime.md#快速无人值守：十章一组`
 
 ## 12 项目与数据边界
 
