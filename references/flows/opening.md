@@ -32,6 +32,8 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" opening --file 约�
 
 ## D1 逐门自执四步（每门重复）
 
+构思候选前，取最新有效市场快照的**当期摘要**（当期在跑的机制/节奏/审美、已饱和方向）作为构思上下文，并与候选一起接受俗套自审；没有快照按"无当期证据"处理并注明。
+
 ```bash
 # ① 取任务与 task_path
 python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" advance --compact
@@ -68,6 +70,7 @@ python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" back --gate "$GATE"
 旧组编号不能套新门——传错 id 时重读当前板面并核对 `valid_options`：委托范围内重新决策，亲选原答复无法对应当前组时才请用户重选。预选、超时、沉默都不代表选择；有效委托内的明确代选也不依赖用户再次答复。
 
 4. 每次 `choose` / `regroup` / `back` 后向台账追加一行（用户原话；代选时授权原话＋当次理由）。
+5. premise / protagonist / opposition 门的候选先过 `references/editorial-judgment.md` 的反俗套三查；命中俗套时以俗套拒绝为 reason 走 `regroup` 重出（保留项写明要保留的机制），不在原组内将就。
 
 ## D2b 不满意时输入自己的需求
 
