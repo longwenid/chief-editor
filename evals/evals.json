@@ -1,6 +1,6 @@
 {
   "skill_name": "chief-editor",
-  "note": "本文件只测触发与近邻误触发，不证明编辑判断或自主完成能力。behavioral.json 另用隔离情境检验唯一主见、用户边界、自主回退、审美理由与设计交接；必须检查实际行为，不能以触发成功代替。",
+  "note": "本文件只测触发与近邻误触发，不证明编辑判断或自主完成能力。behavioral.json 另用隔离情境检验唯一主见、用户边界、自主回退、审美理由与开书交接；必须检查实际行为，不能以触发成功代替。",
   "evals": [
     {
       "id": 1,
@@ -18,7 +18,7 @@
       "id": 3,
       "prompt": "上次那个《力量计税》写到第几章了？接着往下写",
       "should_trigger": true,
-      "why": "续跑已有项目，需要唤醒·接管并恢复 owner"
+      "why": "进度询问触发总编只读回答并按 handoff 指回 novel-ledger，不接管写作"
     },
     {
       "id": 4,
@@ -42,13 +42,13 @@
       "id": 7,
       "prompt": "把这本书导出成 html 给我看看，然后做个交付复盘",
       "should_trigger": true,
-      "why": "交付与复盘"
+      "why": "写作执行请求触发后按 handoff 指回 novel-ledger，不代跑导出与交付复盘"
     },
     {
       "id": 8,
       "prompt": "第十三章我想改成主角当场翻脸，你安排返修一下",
       "should_trigger": true,
-      "why": "作者发起的修订（T0 入口）"
+      "why": "正文返修属 novel-ledger 写作阶段；总编触发后指回，不代跑 revise"
     },
     {
       "id": 9,

@@ -104,29 +104,11 @@ python3 "<chief-editor>/scripts/plan_opening_request.py" --engine "$NOVEL_LEDGER
 
 `back` 的 reason 留在引擎历史，不自动成为 `opening_rejections`；总编恢复回退流程时从现有台账带入本次变更、保留项与授权原话，按新任务合法字段重新落实。记录定位指向原真源，不复制另一套小说事实。
 
-## D3 世界与纲要设计（正文授权前）
+## D3 约定激活即交接（流程终点）
 
-十三门全部完成后，按引擎返回依次处理 `world_model` / `opening_contract` / `volume_outline` / `chapter_outline` 的实际任务，不自行猜门序后的下一任务。此时尚未正文 `run`，通常没有 controller owner；约定未激活时 `run` 也会被引擎拒绝，不能为取得 owner 提前保存正文授权。
+十三门全部完成后，引擎按自身阶段给出 `world_model` / `opening_contract` / `volume_outline` / `chapter_outline` 等设计任务。**总编不再处理这些任务**：世界与纲要设计、正文授权、连写、修订与交付全部移交 novel-ledger 技能执行（见 `flows/handoff.md`）。总编不派设计 Worker、不执行不带 owner 的 `prepare-worker`、不等待宿主提交事件——开书选择完成即交接。
 
-1. 按 `flows/writing.md` F1/F2 创建真实独立 Worker，使其先等候身份准备。尚无 owner 时，由主干执行不带 `--owner` 的 `prepare-worker`；仅向该 Worker 交付返回的 `worker_env`，再转发刷新后的 `dispatch.md` 与任务路径。`claim=null` 只表示尚未认领，所有新的设计 Worker 都须准备身份；ready 仅表示登记成功，不能当作已开工或完成。无法交付真实身份的宿主保留任务并报告能力缺口。
-2. 保留 task ID 与真实 Worker 身份，等宿主的提交/结束事件。**不调用 `watch` 或 `renew`**，不编造 owner；活跃 Worker 存在时不再次 `advance`。宿主无法核实原执行者状态时保留任务并报告，不能用重派探测。
-3. Worker 结束后先用 `status --tasks` 核对任务生命周期；已提交则带准确 `--after` 取下一步。若 Worker 已停止且没有提交，先保留 result.json 并核实执行失败原因，按引擎恢复提示为同一任务重新准备身份；确需刷新视图时才重新 advance。技术阻断须修复原因后才使用 prepare-worker 的 reset-failures，不靠换人清零；连续两次空转保留现场报告。停点或错误按权威处置表处理。
-
-```bash
-# 仅限从未正文 run 的开书设计阶段；SESSION 来自真实宿主
-python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" prepare-worker --task "$TASK" --session "$SESSION"
-# 已核实提交的设计任务
-python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" advance --compact --after "$DONE_TASK"
-# 无 pending，或已确认原执行者停止且需恢复同一任务时
-python "$NOVEL_LEDGER/scripts/novel.py" --project "$PROJECT" advance --compact
-```
-
-| run 状态 | 允许的等待 | 提交后推进 |
-|---|---|---|
-| `not_started` | `host_event` | `advance_after`（不带 owner） |
-| `authorized` | `watch`（携带真实 owner） | `watch` 返回下一 action，沿原授权进入 writing F4 |
-
-收到 `outline_ready` 后交付世界视图与**实际卷纲覆盖**。已有明确正文授权就按同一原话保存，只有缺失时才询问；拿到真实 owner 后进入 writing F 循环。`world_ready` 若尚缺实际卷纲覆盖，仍依当前引擎阶段处理设计交付，不能跳过纲要或把设计完成当作正文授权。
+此时尚未正文 `run`，没有 controller owner，也不要为推进而保存正文授权；`world_ready` / `outline_ready` 等动作一律视为交接信号，按 `flows/handoff.md` H1/H2 交付开书成果摘要与交接卡。
 
 ## 记忆
 
@@ -136,4 +118,4 @@ genre / premise / voice / payoff 的选择理由回指立项记录中的同一�
 
 ## 出口
 
-设计 `task_ready` → 本节；`outline_ready` 且已有明确正文授权 → `flows/writing.md` E 保存同一授权；没有正文授权则交付开书成果并停在授权入口。
+设计 `task_ready`（`world_model` 等阶段）或 `world_ready` / `outline_ready` → `flows/handoff.md`：交付开书成果并交接 novel-ledger。本技能没有正文授权入口。

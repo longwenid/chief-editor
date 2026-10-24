@@ -195,25 +195,15 @@ def command_errors(words: list[str], schemas: dict[str, Schema]) -> list[str]:
 
 
 class FlowContracts(unittest.TestCase):
-    def test_authoritative_idle_table_preserves_the_same_worker_guards(self):
+    def test_wakeup_never_redispatches_beyond_activation(self):
         recovery = branches((FLOWS / "wakeup.md").read_text().split("## 隔离")[0], 3)
-        authority = (ROOT / "references" / "engine-cli.md").read_text()
-        idle = next(cells[1] for cells in table_rows(authority)
-                    if len(cells) == 2 and "idle" in code_tags(cells[0]))
-        tokens = code_tags(idle)
-        for state in ("worker_active", "worker_unknown", "worker_stopped_pending"):
+        for state, operation in {"read_only_request": "status_only", "awaiting_choice": "opening"}.items():
             with self.subTest(state=state):
-                self.assertIn(state, tokens, "idle timeout does not establish host termination")
-                self.assertEqual(tokens[tokens.index(state) + 1], code_tags(recovery[state][0])[0])
-
-    def test_read_only_and_active_workers_never_redispatch(self):
-        recovery = branches((FLOWS / "wakeup.md").read_text().split("## 隔离")[0], 3)
-        for state, operation in {"read_only_request": "status_only", "worker_active": "wait_existing", "worker_unknown": "report_pending"}.items():
-            with self.subTest(state=state):
-                self.assertEqual(code_tags(recovery[state][0])[0], operation)
+                self.assertEqual(code_tags(recovery[state][0])[0].split(":")[0], operation)
                 self.assertEqual(code_tags(recovery[state][1]), ["false"])
-        for state in ("worker_stopped_pending", "task_done", "no_pending"):
-            self.assertEqual(code_tags(recovery[state][1]), ["true"])
+        self.assertIn("handoff", code_tags(recovery["beyond_activation"][0])[0])
+        self.assertEqual(code_tags(recovery["beyond_activation"][1]), ["false"])
+        self.assertEqual(code_tags(recovery["gate_pending"][1]), ["true"])
 
     def test_opening_task_routing_uses_stage(self):
         text = (FLOWS / "wakeup.md").read_text()
@@ -225,58 +215,39 @@ class FlowContracts(unittest.TestCase):
                 stage_targets[stage] = code_tags(target)[0]
         self.assertEqual(stage_targets["opening_options"], "opening:D1")
         for stage in ("world_model", "opening_contract", "volume_outline", "chapter_outline"):
-            self.assertEqual(stage_targets[stage], "opening:D3")
-        self.assertTrue(any(code_tags(row[2]) == ["writing:F1"] for row in routes))
+            self.assertEqual(stage_targets[stage], "flows/handoff.md")
+        self.assertFalse(any("writing" in target for _, _, target in routes))
 
-    def test_unowned_design_waits_for_host_then_advances_after(self):
-        design = branches((FLOWS / "opening.md").read_text(), 3)
-        self.assertEqual(code_tags(design["not_started"][0]), ["host_event"])
-        self.assertEqual(code_tags(design["not_started"][1]), ["advance_after"])
-        self.assertEqual(code_tags(design["authorized"][0]), ["watch"])
+    def test_gate_phase_runs_ownerless_and_hands_off_design_tasks(self):
         commands = bash_commands((FLOWS / "opening.md").read_text())
-        completed = [words for words in commands if "advance" in words and "--after" in words]
-        self.assertTrue(completed)
-        self.assertTrue(all("--owner" not in words for words in completed))
-        self.assertFalse(any("watch" in words for words in commands))
+        self.assertTrue(commands)
+        for words in commands:
+            self.assertNotIn("--owner", words, "gate phase has no controller owner")
+        for forbidden in ("prepare-worker", "claim", "watch", "run"):
+            self.assertFalse(any(forbidden in words for words in commands),
+                             f"{forbidden} belongs to novel-ledger after handoff")
 
-    def test_wakeup_advance_preserves_recovered_owner(self):
-        advances = [words for words in bash_commands((FLOWS / "wakeup.md").read_text()) if "advance" in words]
-        self.assertTrue(advances)
-        for words in advances:
-            self.assertIn("--owner", words)
-            self.assertEqual(words[words.index("--owner") + 1], "$OWNER")
-
-    def test_design_and_writing_prepare_real_workers(self):
-        for name, needs_owner in (("opening", False), ("writing", True)):
-            commands = bash_commands((FLOWS / f"{name}.md").read_text())
-            preparations = [words for words in commands if "prepare-worker" in words]
-            with self.subTest(flow=name):
-                self.assertTrue(preparations, "claim=null does not waive execution identity preparation")
-                self.assertFalse(any("claim" in words for words in commands), "new dispatch uses prepare-worker")
-                for words in preparations:
-                    self.assertEqual("--owner" in words, needs_owner)
-                    self.assertIn("--task", words)
-                    self.assertIn("--session", words)
-
-    def test_review_lifecycle_has_distinct_recovery_routes(self):
-        actions = (ROOT / "references" / "engine-cli.md").read_text().split("## 4 watch 返回动作处置")[1].split("## 5")[0]
-        authority = {key: cells[1] for cells in table_rows(actions) if len(cells) == 2
-                     for key in code_tags(cells[0]) if key.startswith("review_")}
-        writing = branches((FLOWS / "writing.md").read_text().split("### F4b")[1].split("### F5")[0], 2)
-        for action in ("review_required", "review_in_progress", "review_author_required", "review_complete"):
-            self.assertIn(action, authority)
-            self.assertIn(action, writing)
-        for name in ("opening", "writing", "wakeup"):
+    def test_handoff_card_names_recovery_and_never_runs_writing_commands(self):
+        text = (FLOWS / "handoff.md").read_text()
+        self.assertIn("novel-ledger", text)
+        self.assertIn("恢复项目", text)
+        commands = bash_commands(text)
+        self.assertTrue(all("status" in words for words in commands),
+                        "handoff may only run read-only status checks")
+        for forbidden in ("run", "watch", "prepare-worker", "prepare-observer", "revise",
+                          "complete", "deliver", "export", "html", "renew", "pause", "resume"):
+            self.assertFalse(any(forbidden in words for words in commands), forbidden)
+        for name in ("wakeup", "opening", "handoff"):
             for words in bash_commands((FLOWS / f"{name}.md").read_text()):
                 self.assertFalse({"review-read", "review-observe", "review-report", "worker-ready"} & set(words),
                                  "controller examples must not impersonate the observer/Worker")
 
-    def test_partial_delivery_remains_discoverable(self):
-        delivery = branches((FLOWS / "delivery.md").read_text(), 2)
-        for result in ("target_reached", "preview_export", "delivery_failed"):
-            self.assertEqual(code_tags(delivery[result][0]), ["active"])
-        self.assertEqual(code_tags(delivery["completed_and_delivered"][0]), ["delivered"])
-        self.assertEqual(code_tags(delivery["author_shelved"][0]), ["shelved"])
+    def test_reported_results_map_to_decision_status(self):
+        reported = branches((FLOWS / "handoff.md").read_text(), 2)
+        for result in ("partial_delivery", "t2_stop"):
+            self.assertEqual(code_tags(reported[result][0]), ["active"])
+        self.assertEqual(code_tags(reported["completed_and_delivered"][0]), ["delivered"])
+        self.assertEqual(code_tags(reported["author_shelved"][0]), ["shelved"])
 
 
 class RealCliExamples(unittest.TestCase):
@@ -289,43 +260,12 @@ class RealCliExamples(unittest.TestCase):
 
     def test_executable_flow_examples_have_real_required_arguments(self):
         checked = 0
-        for name in ("wakeup", "opening", "writing", "delivery"):
+        for name in ("wakeup", "opening", "handoff"):
             for words in bash_commands((FLOWS / f"{name}.md").read_text()):
                 checked += 1
                 with self.subTest(flow=name, command=words):
                     self.assertEqual(command_errors(words, self.schemas), [])
-        self.assertGreater(checked, 20)
-
-    def test_original_missing_revision_reason_is_rejected(self):
-        revision = next(words for words in bash_commands((FLOWS / "writing.md").read_text()) if "revise" in words)
-        self.assertEqual(command_errors(revision, self.schemas), [])
-        broken = list(revision)
-        index = broken.index("--reason")
-        del broken[index:index + 2]
-        self.assertIn("missing --reason", command_errors(broken, self.schemas))
-
-    def test_real_cli_target_group_remains_required_and_exclusive(self):
-        prefix = ["python", "$NOVEL_LEDGER/scripts/novel.py", "--project", "$PROJECT", "run"]
-        self.assertTrue(command_errors(prefix, self.schemas))
-        self.assertTrue(command_errors(prefix + ["--through", "40", "--complete"], self.schemas))
-        self.assertEqual(command_errors(prefix + ["--through", "40", "--source", "原授权"], self.schemas), [])
-
-    def test_real_identity_and_review_commands_keep_required_bindings(self):
-        cases = {
-            "prepare-worker": {"--task", "--session"},
-            "prepare-observer": {"--request", "--session"},
-            "review-resolve": {"--request", "--disposition", "--source"},
-            "recover-engine": {"--task", "--input-hash", "--source"},
-            "review-read": {"--request"},
-            "review-report": {"--request", "--file"},
-        }
-        for command, required in cases.items():
-            with self.subTest(command=command):
-                self.assertTrue(required <= self.schemas[command].required)
-                prefix = ["python3", "$NOVEL_LEDGER/scripts/novel.py", command]
-                errors = command_errors(prefix, self.schemas)
-                for flag in required:
-                    self.assertIn(f"missing {flag}", errors)
+        self.assertGreater(checked, 5)
 
 
 class CliAstCompatibility(unittest.TestCase):

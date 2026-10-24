@@ -68,13 +68,13 @@
 
 **出处**：`$NOVEL_LEDGER/scripts/novel.py#WORKER_ONLY`、`$NOVEL_LEDGER/scripts/novel_ledger/contracts.py#CONTROLLER_STAGES`、`$NOVEL_LEDGER/references/runtime.md#任务交接`
 
-## 9 派工纪律
+## 9 交接纪律：写作执行不代跑
 
-**规则**：先用宿主真实身份执行 `prepare-worker`，仅向对应 Worker 交付响应的 `worker_env`，再转发任务目录的 `dispatch.md`＋角色＋`task_path`＋一句背景与简短提交状态要求。`claim=null` 不是免准备许可，ready 也不是实际运行证明。独立读者按 `prepare-observer` 返回的环境和命令交接。不手写环境自举、不复述协议、不改写 `commands`/`guides`。`commands` 是 argv 数组，按数组执行，不拼 shell 字符串。命令路径失效先做文件系统核实，不凭路径字面判断。
+**规则**：总编的职责到开书选择为止。约定激活后的一切写作命令（`run` / `watch` / `prepare-worker` / `prepare-observer` / `revise` / `complete` / `deliver` 等）由 novel-ledger 技能执行；总编不派写作 Worker、不持有或沿用 owner、不在自己的会话里代跑——即使台账里有交接前的历史 owner、即使"只差一条命令"。交接按 `flows/handoff.md` 出交接卡。
 
-**为什么**：手写派工卡会教 Worker 做错事（实测曾被 `worker_boundary` 拒绝），而且派工内容一旦分叉，出问题就无法判断是引擎错还是提示词错。
+**为什么**：总编主会话每次引擎往返都重发全量上下文（实测单请求 200K+ tokens，项目实测每章成本是 novel-ledger 直控的 5~7 倍）。写作编排留在总编会话里，省下的一次切换会以几十倍的成本返还；而且两套编排同时驱动一本书，出问题就说不清是哪一侧的治理失守。
 
-**出处**：`$NOVEL_LEDGER/references/runtime.md#任务交接`、`$NOVEL_LEDGER/references/runtime.md#路径与失效判定`
+**出处**：`$NOVEL_LEDGER/references/runtime.md#任务交接`
 
 ## 10 修订与超界方案
 
